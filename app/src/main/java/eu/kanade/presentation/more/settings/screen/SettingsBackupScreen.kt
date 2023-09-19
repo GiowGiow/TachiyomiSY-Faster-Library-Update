@@ -377,6 +377,11 @@ object SettingsBackupScreen : SearchableSettings {
                     title = stringResource(R.string.pref_backup_interval),
                     entries = mapOf(
                         0 to stringResource(R.string.off),
+                        1 to stringResource(R.string.update_hour),
+                        2 to stringResource(R.string.update_2hour),
+                        3 to stringResource(R.string.update_3hour),
+                        4 to stringResource(R.string.update_4hour),
+                        5 to stringResource(R.string.update_5hour),
                         6 to stringResource(R.string.update_6hour),
                         12 to stringResource(R.string.update_12hour),
                         24 to stringResource(R.string.update_24hour),
