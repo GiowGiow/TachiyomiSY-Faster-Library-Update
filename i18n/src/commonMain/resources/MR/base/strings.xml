@@ -265,7 +265,17 @@
     <string name="pref_category_library_update">Global update</string>
     <string name="pref_library_update_interval">Automatic updates</string>
     <string name="update_never">Off</string>
+    <string name="update_1hour">Every 1 hours</string>
+    <string name="update_2hour">Every 2 hours</string>
+    <string name="update_3hour">Every 3 hours</string>
+    <string name="update_4hour">Every 4 hours</string>
+    <string name="update_5hour">Every 5 hours</string>
     <string name="update_6hour">Every 6 hours</string>
+    <string name="update_7hour">Every 7 hours</string>
+    <string name="update_8hour">Every 8 hours</string>
+    <string name="update_9hour">Every 9 hours</string>
+    <string name="update_10hour">Every 10 hours</string>
+    <string name="update_11hour">Every 11 hours</string>
     <string name="update_12hour">Every 12 hours</string>
     <string name="update_24hour">Daily</string>
     <string name="update_48hour">Every 2 days</string>
