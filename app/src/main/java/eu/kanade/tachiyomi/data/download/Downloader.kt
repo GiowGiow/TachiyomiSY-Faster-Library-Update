@@ -13,10 +13,10 @@ import eu.kanade.tachiyomi.source.UnmeteredSource
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.storage.CbzCrypto
-import eu.kanade.tachiyomi.util.storage.CbzCrypto.addFilesToZip
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.storage.DiskUtil.NOMEDIA_FILE
 import eu.kanade.tachiyomi.util.storage.saveTo
+import exh.source.isEhBasedSource
 import exh.util.DataSaver
 import exh.util.DataSaver.Companion.getImage
 import kotlinx.coroutines.CancellationException
@@ -46,6 +46,7 @@ import logcat.LogPriority
 import nl.adaptivity.xmlutil.serialization.XML
 import okhttp3.Response
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.storage.addFilesToZip
 import tachiyomi.core.common.storage.extension
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNow
@@ -511,6 +512,9 @@ class Downloader(
             .retryWhen { _, attempt ->
                 if (attempt < 3) {
                     delay((2L shl attempt.toInt()) * 1000)
+                    if (source.isEhBasedSource()) {
+                        page.imageUrl = source.getImageUrl(page)
+                    }
                     true
                 } else {
                     false
@@ -572,10 +576,6 @@ class Downloader(
                 tmpDir,
                 imageFile,
                 filenamePrefix,
-                // SY -->
-                zip4jFile = null,
-                zip4jEntry = null,
-                // SY <--
             )
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to split downloaded image" }
@@ -713,7 +713,7 @@ class Downloader(
         )
 
         // Remove the old file
-        dir.findFile(COMIC_INFO_FILE, true)?.delete()
+        dir.findFile(COMIC_INFO_FILE)?.delete()
         dir.createFile(COMIC_INFO_FILE)!!.openOutputStream().use {
             val comicInfoString = xml.encodeToString(ComicInfo.serializer(), comicInfo)
             it.write(comicInfoString.toByteArray())
