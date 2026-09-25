@@ -1,25 +1,29 @@
 plugins {
-    id("mihon.library")
-    id("app.cash.sqldelight")
-    kotlin("android")
-    kotlin("plugin.serialization")
+    alias(mihonx.plugins.android.library)
+    alias(mihonx.plugins.spotless)
+
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.sqldelight)
 }
 
 android {
     namespace = "tachiyomi.data"
 
-    defaultConfig {
-        consumerProguardFiles("consumer-rules.pro")
-    }
-
     sqldelight {
         databases {
             create("Database") {
                 packageName.set("tachiyomi.data")
-                dialect(libs.sqldelight.dialects.sql)
+                dialect(libs.sqldelight.sqliteDialect338)
                 schemaOutputDirectory.set(project.file("./src/main/sqldelight"))
+                generateAsync.set(true)
             }
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        optIn.add("kotlinx.serialization.ExperimentalSerializationApi")
     }
 }
 
@@ -28,14 +32,9 @@ dependencies {
     implementation(projects.domain)
     implementation(projects.core.common)
 
-    api(libs.bundles.sqldelight)
-}
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.serialization.jsonOkio)
+    implementation(libs.kotlinx.serialization.protobuf)
 
-tasks {
-    withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions.freeCompilerArgs += listOf(
-            "-Xcontext-receivers",
-            "-opt-in=kotlinx.serialization.ExperimentalSerializationApi",
-        )
-    }
+    api(libs.bundles.sqldelight)
 }

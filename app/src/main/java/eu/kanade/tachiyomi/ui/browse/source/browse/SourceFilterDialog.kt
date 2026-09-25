@@ -22,8 +22,6 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.toImmutableList
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.source.model.EXHSavedSearch
 import tachiyomi.i18n.MR
@@ -46,7 +44,7 @@ fun SourceFilterDialog(
     onUpdate: (FilterList) -> Unit,
     // SY -->
     startExpanded: Boolean,
-    savedSearches: ImmutableList<EXHSavedSearch>,
+    savedSearches: List<EXHSavedSearch>,
     onSave: () -> Unit,
     onSavedSearch: (EXHSavedSearch) -> Unit,
     onSavedSearchPress: (EXHSavedSearch) -> Unit,
@@ -56,9 +54,7 @@ fun SourceFilterDialog(
 ) {
     val updateFilters = { onUpdate(filters) }
 
-    AdaptiveSheet(
-        onDismissRequest = onDismissRequest,
-    ) {
+    AdaptiveSheet(onDismissRequest = onDismissRequest) {
         LazyColumn {
             stickyHeader {
                 Row(
@@ -127,11 +123,11 @@ private fun FilterItem(filter: Filter<*>, onUpdate: () -> Unit/* SY --> */, star
         is Filter.AutoComplete -> {
             AutoCompleteItem(
                 name = filter.name,
-                state = filter.state.toImmutableList(),
+                state = filter.state.toList(),
                 hint = filter.hint,
-                values = filter.values.toImmutableList(),
-                skipAutoFillTags = filter.skipAutoFillTags.toImmutableList(),
-                validPrefixes = filter.validPrefixes.toImmutableList(),
+                values = filter.values,
+                skipAutoFillTags = filter.skipAutoFillTags,
+                validPrefixes = filter.validPrefixes,
             ) {
                 filter.state = it
                 onUpdate()
@@ -190,22 +186,24 @@ private fun FilterItem(filter: Filter<*>, onUpdate: () -> Unit/* SY --> */, star
             ) {
                 Column {
                     filter.values.mapIndexed { index, item ->
+                        val sortAscending = filter.state?.ascending
+                            ?.takeIf { index == filter.state?.index }
                         SortItem(
                             label = item,
-                            sortDescending = filter.state?.ascending?.not()
-                                ?.takeIf { index == filter.state?.index },
-                        ) {
-                            val ascending = if (index == filter.state?.index) {
-                                !filter.state!!.ascending
-                            } else {
-                                filter.state!!.ascending
-                            }
-                            filter.state = Filter.Sort.Selection(
-                                index = index,
-                                ascending = ascending,
-                            )
-                            onUpdate()
-                        }
+                            sortDescending = if (sortAscending != null) !sortAscending else null,
+                            onClick = {
+                                val ascending = if (index == filter.state?.index) {
+                                    !filter.state!!.ascending
+                                } else {
+                                    filter.state?.ascending ?: true
+                                }
+                                filter.state = Filter.Sort.Selection(
+                                    index = index,
+                                    ascending = ascending,
+                                )
+                                onUpdate()
+                            },
+                        )
                     }
                 }
             }

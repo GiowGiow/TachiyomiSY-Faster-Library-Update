@@ -9,6 +9,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import coil3.asDrawable
 import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.transformations
@@ -27,6 +28,7 @@ import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
+import kotlinx.coroutines.DelicateCoroutinesApi
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
@@ -41,6 +43,7 @@ import uy.kohesive.injekt.api.get
 import java.math.RoundingMode
 import java.text.NumberFormat
 
+@OptIn(DelicateCoroutinesApi::class)
 class LibraryUpdateNotifier(
     private val context: Context,
 
@@ -97,7 +100,7 @@ class LibraryUpdateNotifier(
                 ),
             )
 
-        if (!securityPreferences.hideNotificationContent().get()) {
+        if (!securityPreferences.hideNotificationContent.get()) {
             val updatingText = manga.joinToString("\n") { it.title.chop(40) }
             progressNotificationBuilder.setStyle(NotificationCompat.BigTextStyle().bigText(updatingText))
         }
@@ -152,7 +155,7 @@ class LibraryUpdateNotifier(
             Notifications.ID_LIBRARY_ERROR,
             Notifications.CHANNEL_LIBRARY_ERROR,
         ) {
-            setContentTitle(context.stringResource(MR.strings.notification_update_error, failed))
+            setContentTitle(context.pluralStringResource(MR.plurals.notification_update_error, failed, failed))
             setContentText(context.stringResource(MR.strings.action_show_errors))
             setSmallIcon(R.drawable.ic_tachi)
 
@@ -172,7 +175,7 @@ class LibraryUpdateNotifier(
             Notifications.CHANNEL_NEW_CHAPTERS,
         ) {
             setContentTitle(context.stringResource(MR.strings.notification_new_chapters))
-            if (updates.size == 1 && !securityPreferences.hideNotificationContent().get()) {
+            if (updates.size == 1 && !securityPreferences.hideNotificationContent.get()) {
                 setContentText(updates.first().first.title.chop(NOTIF_TITLE_MAX_LEN))
             } else {
                 setContentText(
@@ -183,7 +186,7 @@ class LibraryUpdateNotifier(
                     ),
                 )
 
-                if (!securityPreferences.hideNotificationContent().get()) {
+                if (!securityPreferences.hideNotificationContent.get()) {
                     setStyle(
                         NotificationCompat.BigTextStyle().bigText(
                             updates.joinToString("\n") {
@@ -207,7 +210,7 @@ class LibraryUpdateNotifier(
         }
 
         // Per-manga notification
-        if (!securityPreferences.hideNotificationContent().get()) {
+        if (!securityPreferences.hideNotificationContent.get()) {
             launchUI {
                 context.notify(
                     updates.map { (manga, chapters) ->

@@ -45,4 +45,9 @@ val migrations: List<Migration>
         MoveCacheToDiskSettingMigration(),
         MoveEncryptionSettingsToAppStateMigration(),
         TrustExtensionRepositoryMigration(),
+        CategoryPreferencesCleanupMigration(),
+        RemoveDuplicateReaderPreferenceMigration(),
+        InstallationIdMigration(),
+        MoveVerticalSeekbarSettingsMigration(),
+        VerticalNavigatorMigration(),
     )

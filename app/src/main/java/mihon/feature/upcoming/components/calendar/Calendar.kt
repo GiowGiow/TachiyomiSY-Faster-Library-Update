@@ -19,8 +19,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastForEach
 import io.woong.compose.grid.SimpleGridCells
 import io.woong.compose.grid.VerticalGrid
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.toImmutableList
 import mihon.core.designsystem.utils.isExpandedWidthWindow
 import mihon.core.designsystem.utils.isMediumWidthWindow
 import tachiyomi.presentation.core.components.material.padding
@@ -32,12 +30,12 @@ import java.time.temporal.WeekFields
 import java.util.Locale
 
 private val FontSize = 16.sp
-private const val DaysOfWeek = 7
+private const val DAYS_OF_WEEK = 7
 
 @Composable
 fun Calendar(
     selectedYearMonth: YearMonth,
-    events: ImmutableMap<LocalDate, Int>,
+    events: Map<LocalDate, Int>,
     setSelectedYearMonth: (YearMonth) -> Unit,
     onClickDay: (day: LocalDate) -> Unit,
     modifier: Modifier = Modifier,
@@ -54,7 +52,7 @@ fun Calendar(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = MaterialTheme.padding.small)
-                .padding(start = MaterialTheme.padding.medium)
+                .padding(start = MaterialTheme.padding.medium),
         )
         CalendarGrid(
             selectedYearMonth = selectedYearMonth,
@@ -67,26 +65,25 @@ fun Calendar(
 @Composable
 private fun CalendarGrid(
     selectedYearMonth: YearMonth,
-    events: ImmutableMap<LocalDate, Int>,
+    events: Map<LocalDate, Int>,
     onClickDay: (day: LocalDate) -> Unit,
 ) {
     val localeFirstDayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek.value
     val weekDays = remember {
-        (0 until DaysOfWeek)
-            .map { DayOfWeek.of((localeFirstDayOfWeek - 1 + it) % DaysOfWeek + 1) }
-            .toImmutableList()
+        (0 until DAYS_OF_WEEK)
+            .map { DayOfWeek.of((localeFirstDayOfWeek - 1 + it) % DAYS_OF_WEEK + 1) }
     }
 
     val emptyFieldCount = weekDays.indexOf(selectedYearMonth.atDay(1).dayOfWeek)
     val daysInMonth = selectedYearMonth.lengthOfMonth()
 
     VerticalGrid(
-        columns = SimpleGridCells.Fixed(DaysOfWeek),
+        columns = SimpleGridCells.Fixed(DAYS_OF_WEEK),
         modifier = if (isMediumWidthWindow() && !isExpandedWidthWindow()) {
             Modifier.widthIn(max = 360.dp)
         } else {
             Modifier
-        }
+        },
     ) {
         weekDays.fastForEach { item ->
             Text(

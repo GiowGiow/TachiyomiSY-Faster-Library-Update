@@ -1,12 +1,11 @@
 package eu.kanade.test
 
-import android.graphics.Color
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import okhttp3.OkHttpClient
 import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
@@ -15,22 +14,21 @@ data class DummyTracker(
     override val id: Long,
     override val name: String,
     override val supportsReadingDates: Boolean = false,
+    override val supportsPrivateTracking: Boolean = false,
     override val isLoggedIn: Boolean = false,
-    val valLogoColor: Int = Color.rgb(18, 25, 35),
-    val valLogo: Int = R.drawable.ic_tracker_anilist,
+    override val isLoggedInFlow: Flow<Boolean> = flowOf(false),
+    val valLogo: Int = R.drawable.brand_anilist,
     val valStatuses: List<Long> = (1L..6L).toList(),
     val valReadingStatus: Long = 1L,
     val valRereadingStatus: Long = 1L,
     val valCompletionStatus: Long = 2L,
-    val valScoreList: ImmutableList<String> = (0..10).map(Int::toString).toImmutableList(),
+    val valScoreList: List<String> = (0..10).map(Int::toString),
     val val10PointScore: Double = 5.4,
     val valSearchResults: List<TrackSearch> = listOf(),
 ) : Tracker {
 
     override val client: OkHttpClient
         get() = TODO("Not yet implemented")
-
-    override fun getLogoColor(): Int = valLogoColor
 
     override fun getLogo(): Int = valLogo
 
@@ -52,7 +50,7 @@ data class DummyTracker(
 
     override fun getCompletionStatus(): Long = valCompletionStatus
 
-    override fun getScoreList(): ImmutableList<String> = valScoreList
+    override fun getScoreList(): List<String> = valScoreList
 
     override fun get10PointScore(track: Track): Double = val10PointScore
 
@@ -82,6 +80,10 @@ data class DummyTracker(
     override fun logout() = Unit
 
     override fun getUsername(): String = "username"
+
+    override fun getDisplayUsername(): String = "UserName"
+
+    override fun saveDisplayUsername(displayName: String): Unit = Unit
 
     override fun getPassword(): String = "passw0rd"
 
@@ -116,4 +118,17 @@ data class DummyTracker(
         track: eu.kanade.tachiyomi.data.database.models.Track,
         epochMillis: Long,
     ) = Unit
+
+    override suspend fun setRemotePrivate(
+        track: eu.kanade.tachiyomi.data.database.models.Track,
+        private: Boolean,
+    ) = Unit
+
+    override suspend fun getMangaMetadata(
+        track: tachiyomi.domain.track.model.Track,
+    ): eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata = eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata(
+        0, "test", "test", "test", "test", "test",
+    )
+
+    override suspend fun searchById(id: String) = null
 }

@@ -1,51 +1,57 @@
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+
 plugins {
-    id("mihon.library")
-    kotlin("multiplatform")
-    kotlin("plugin.serialization")
+    alias(mihonx.plugins.kotlin.multiplatform)
+    alias(mihonx.plugins.spotless)
+
+    alias(libs.plugins.kotlin.serialization)
+
     id("com.github.ben-manes.versions")
 }
 
 kotlin {
-    androidTarget()
-    sourceSets {
-        val commonMain by getting {
-            dependencies {
-                api(kotlinx.serialization.json)
-                api(libs.injekt.core)
-                api(libs.rxjava)
-                api(libs.jsoup)
-                // SY -->
-                api(projects.i18n)
-                api(projects.i18nSy)
-                api(kotlinx.reflect)
-                // SY <--
+    @Suppress("UnstableApiUsage")
+    android {
+        namespace = "eu.kanade.tachiyomi.source"
+        optimization {
+            consumerKeepRules.apply {
+                publish = true
+                file("consumer-proguard.pro")
             }
         }
-        val androidMain by getting {
+
+        // TODO(antsy): Remove when https://youtrack.jetbrains.com/issue/KT-83319 is resolved
+        withHostTest { }
+    }
+
+    @OptIn(ExperimentalKotlinGradlePluginApi::class)
+    dependencies {
+        api(libs.kotlinx.serialization.json)
+        api(libs.injekt)
+        api(libs.rxJava)
+        api(libs.jsoup)
+
+        implementation(platform(libs.androidx.compose.bom))
+        implementation(libs.androidx.compose.runtime)
+
+        // SY -->
+        api(projects.i18n)
+        api(projects.i18nSy)
+        api(libs.kotlin.reflect)
+        // SY <--
+    }
+
+    sourceSets {
+        androidMain {
             dependencies {
                 implementation(projects.core.common)
-                api(libs.preferencektx)
-
-                // Workaround for https://youtrack.jetbrains.com/issue/KT-57605
-                implementation(kotlinx.coroutines.android)
-                implementation(project.dependencies.platform(kotlinx.coroutines.bom))
+                api(libs.androidx.preference)
             }
         }
     }
-}
 
-android {
-    namespace = "eu.kanade.tachiyomi.source"
-
-    defaultConfig {
-        consumerProguardFile("consumer-proguard.pro")
-    }
-}
-
-tasks {
-    withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions.freeCompilerArgs += listOf(
-            "-Xexpect-actual-classes",
-        )
+    @OptIn(ExperimentalKotlinGradlePluginApi::class)
+    compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
     }
 }

@@ -55,13 +55,13 @@ fun NHentaiDescription(state: State.Success, openMetadataViewer: () -> Unit) {
             binding.whenPosted.text = MetadataUtil.EX_DATE_FORMAT
                 .format(
                     ZonedDateTime
-                        .ofInstant(Instant.ofEpochSecond(meta.uploadDate ?: 0), ZoneId.systemDefault())
+                        .ofInstant(Instant.ofEpochSecond(meta.uploadDate ?: 0), ZoneId.systemDefault()),
                 )
 
             binding.pages.text = context.pluralStringResource(
                 SYMR.plurals.num_pages,
-                meta.pageImageTypes.size,
-                meta.pageImageTypes.size,
+                meta.pageImagePreviewUrls.size,
+                meta.pageImagePreviewUrls.size,
             )
             binding.pages.bindDrawable(context, R.drawable.ic_baseline_menu_book_24)
 

@@ -20,7 +20,9 @@ import java.time.ZonedDateTime
 class EHentaiSearchMetadata : RaisedSearchMetadata() {
     var gId: String?
         get() = indexedExtra
-        set(value) { indexedExtra = value }
+        set(value) {
+            indexedExtra = value
+        }
 
     var gToken: String? = null
     var exh: Boolean? = null
@@ -56,11 +58,16 @@ class EHentaiSearchMetadata : RaisedSearchMetadata() {
 
         // No title bug?
         val title = altTitle
-            ?.takeIf { Injekt.get<DelegateSourcePreferences>().useJapaneseTitle().get() } // todo
+            ?.takeIf { Injekt.get<DelegateSourcePreferences>().useJapaneseTitle.get() } // todo
             ?: title
 
         // Set artist (if we can find one)
         val artist = tags.ofNamespace(EH_ARTIST_NAMESPACE)
+            .ifEmpty { null }
+            ?.joinToString { it.name }
+
+        // Set group (if we can find one)
+        val group = tags.ofNamespace(EH_GROUP_NAMESPACE)
             .ifEmpty { null }
             ?.joinToString { it.name }
 
@@ -78,13 +85,12 @@ class EHentaiSearchMetadata : RaisedSearchMetadata() {
             }
         }
 
-        val description = "meta"
-
         return manga.copy(
             url = key ?: manga.url,
             title = title ?: manga.title,
-            artist = artist ?: manga.artist,
-            description = description,
+            artist = group ?: manga.artist,
+            author = artist ?: manga.artist,
+            description = null,
             genre = genres,
             status = status,
             thumbnail_url = cover ?: manga.thumbnail_url,
@@ -143,6 +149,7 @@ class EHentaiSearchMetadata : RaisedSearchMetadata() {
 
         const val EH_GENRE_NAMESPACE = "genre"
         private const val EH_ARTIST_NAMESPACE = "artist"
+        private const val EH_GROUP_NAMESPACE = "group"
         const val EH_LANGUAGE_NAMESPACE = "language"
         const val EH_META_NAMESPACE = "meta"
         const val EH_UPLOADER_NAMESPACE = "uploader"

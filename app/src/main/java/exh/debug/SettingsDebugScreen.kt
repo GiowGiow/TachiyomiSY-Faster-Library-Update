@@ -6,8 +6,6 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.forEachGesture
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -41,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.unit.dp
@@ -52,9 +51,6 @@ import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.presentation.more.settings.widget.TrailingWidgetBuffer
 import eu.kanade.presentation.util.Screen
 import exh.util.capitalize
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -80,7 +76,7 @@ class SettingsDebugScreen : Screen() {
         DisposableEffect(Unit) {
             onDispose { navigator.pop() }
         }
-        val functions by produceState<ImmutableList<Pair<KFunction<*>, String>>?>(initialValue = null) {
+        val functions by produceState<List<Pair<KFunction<*>, String>>?>(initialValue = null) {
             value = withContext(Dispatchers.Default) {
                 DebugFunctions::class.declaredFunctions.filter {
                     it.visibility == KVisibility.PUBLIC
@@ -88,12 +84,12 @@ class SettingsDebugScreen : Screen() {
                     it to it.name.replace("(.)(\\p{Upper})".toRegex(), "$1 $2")
                         .lowercase(Locale.getDefault())
                         .capitalize(Locale.getDefault())
-                }.toImmutableList()
+                }
             }
         }
-        val toggles by produceState(initialValue = persistentListOf()) {
+        val toggles by produceState(initialValue = emptyList()) {
             value = withContext(Dispatchers.Default) {
-                DebugToggles.entries.map { DebugToggle(it.name, it.asPref(scope), it.default) }.toImmutableList()
+                DebugToggles.entries.map { DebugToggle(it.name, it.asPref(scope), it.default) }
             }
         }
         Scaffold(
@@ -107,7 +103,7 @@ class SettingsDebugScreen : Screen() {
             Crossfade(functions == null, label = "debug_functions") {
                 when (it) {
                     true -> LoadingScreen()
-                    false -> FunctionList(paddingValues, functions ?: persistentListOf(), toggles, scope)
+                    false -> FunctionList(paddingValues, functions.orEmpty(), toggles, scope)
                 }
             }
         }
@@ -116,8 +112,8 @@ class SettingsDebugScreen : Screen() {
     @Composable
     fun FunctionList(
         paddingValues: PaddingValues,
-        functions: ImmutableList<Pair<KFunction<*>, String>>,
-        toggles: ImmutableList<DebugToggle>,
+        functions: List<Pair<KFunction<*>, String>>,
+        toggles: List<DebugToggle>,
         scope: CoroutineScope,
     ) {
         Box(Modifier.fillMaxSize()) {
@@ -170,8 +166,8 @@ class SettingsDebugScreen : Screen() {
                     var state by pref
                     TextPreferenceWidget(
                         title = name.replace('_', ' ')
-                            .lowercase(Locale.getDefault())
-                            .capitalize(Locale.getDefault()),
+                            .lowercase(LocalLocale.current.platformLocale)
+                            .capitalize(LocalLocale.current.platformLocale),
                         subtitle = if (pref.value != default) {
                             AnnotatedString("MODIFIED", SpanStyle(color = Color.Red))
                         } else {
@@ -201,13 +197,7 @@ class SettingsDebugScreen : Screen() {
                     Modifier
                         .fillMaxSize()
                         .background(color = Color.White.copy(alpha = 0.3F))
-                        .pointerInput(running && result == null) {
-                            forEachGesture {
-                                awaitPointerEventScope {
-                                    waitForUpOrCancellation()?.consume()
-                                }
-                            }
-                        },
+                        .pointerInput(running && result == null) {},
                     contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator()

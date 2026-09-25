@@ -23,7 +23,7 @@ val Manga.readerOrientation: Long
 
 val Manga.downloadedFilter: TriState
     get() {
-        if (forceDownloaded()) return TriState.ENABLED_IS
+        if (Injekt.get<BasePreferences>().downloadedOnly.get()) return TriState.ENABLED_IS
         return when (downloadedFilterRaw) {
             Manga.CHAPTER_SHOW_DOWNLOADED -> TriState.ENABLED_IS
             Manga.CHAPTER_SHOW_NOT_DOWNLOADED -> TriState.ENABLED_NOT
@@ -35,20 +35,20 @@ fun Manga.chaptersFiltered(): Boolean {
         downloadedFilter != TriState.DISABLED ||
         bookmarkedFilter != TriState.DISABLED
 }
-fun Manga.forceDownloaded(): Boolean {
-    return favorite && Injekt.get<BasePreferences>().downloadedOnly().get()
-}
 
 fun Manga.toSManga(): SManga = SManga.create().also {
     it.url = url
-    it.title = title
-    it.artist = artist
-    it.author = author
-    it.description = description
-    it.genre = genre.orEmpty().joinToString()
-    it.status = status.toInt()
+    // SY -->
+    it.title = ogTitle
+    it.artist = ogArtist
+    it.author = ogAuthor
+    it.description = ogDescription
+    it.genre = ogGenre.orEmpty().joinToString()
+    it.status = ogStatus.toInt()
+    // SY <--
     it.thumbnail_url = thumbnailUrl
     it.initialized = initialized
+    it.memo = memo
 }
 
 fun Manga.copyFrom(other: SManga): Manga {
@@ -76,24 +76,7 @@ fun Manga.copyFrom(other: SManga): Manga {
         // SY <--
         updateStrategy = other.update_strategy,
         initialized = other.initialized && initialized,
-    )
-}
-
-fun SManga.toDomainManga(sourceId: Long): Manga {
-    return Manga.create().copy(
-        url = url,
-        // SY -->
-        ogTitle = title,
-        ogArtist = artist,
-        ogAuthor = author,
-        ogThumbnailUrl = thumbnail_url,
-        ogDescription = description,
-        ogGenre = getGenres(),
-        ogStatus = status.toLong(),
-        // SY <--
-        updateStrategy = update_strategy,
-        initialized = initialized,
-        source = sourceId,
+        memo = other.memo,
     )
 }
 

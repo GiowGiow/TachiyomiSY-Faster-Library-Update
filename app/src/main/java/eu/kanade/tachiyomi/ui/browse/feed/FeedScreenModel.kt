@@ -7,15 +7,11 @@ import androidx.compose.ui.util.fastAny
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.domain.manga.interactor.UpdateManga
-import eu.kanade.domain.manga.model.toDomainManga
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.browse.FeedItemUI
-import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.util.system.LocaleHelper
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -23,6 +19,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -30,6 +27,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import mihon.domain.manga.model.toDomainManga
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withIOContext
@@ -77,11 +75,12 @@ open class FeedScreenModel(
         getFeedSavedSearchGlobal.subscribe()
             .distinctUntilChanged()
             .onEach {
+                sourceManager.isInitialized.first { it }
                 val items = getSourcesToGetFeed(it).map { (feed, savedSearch) ->
                     createCatalogueSearchItem(
                         feed = feed,
                         savedSearch = savedSearch,
-                        source = sourceManager.get(feed.source) as? CatalogueSource,
+                        source = sourceManager.get(feed.source),
                         results = null,
                     )
                 }
@@ -123,16 +122,16 @@ open class FeedScreenModel(
         }
     }
 
-    fun openAddSearchDialog(source: CatalogueSource) {
+    fun openAddSearchDialog(source: Source) {
         screenModelScope.launchIO {
             mutableState.update { state ->
                 state.copy(
                     dialog = Dialog.AddFeedSearch(
                         source,
                         (
-                            (if (source.supportsLatest) persistentListOf(null) else persistentListOf()) +
+                            (if (source.supportsLatest) listOf(null) else emptyList()) +
                                 getSourceSavedSearches(source.id)
-                            ).toImmutableList(),
+                            ),
                     ),
                 )
             }
@@ -153,25 +152,25 @@ open class FeedScreenModel(
         return countFeedSavedSearchGlobal.await() > 10
     }
 
-    fun getEnabledSources(): ImmutableList<CatalogueSource> {
-        val languages = sourcePreferences.enabledLanguages().get()
-        val pinnedSources = sourcePreferences.pinnedSources().get()
-        val disabledSources = sourcePreferences.disabledSources().get()
+    fun getEnabledSources(): List<Source> {
+        val languages = sourcePreferences.enabledLanguages.get()
+        val pinnedSources = sourcePreferences.pinnedSources.get()
+        val disabledSources = sourcePreferences.disabledSources.get()
             .mapNotNull { it.toLongOrNull() }
 
-        val list = sourceManager.getVisibleCatalogueSources()
+        val list = sourceManager.getVisibleSources()
             .filter { it.lang in languages }
             .filterNot { it.id in disabledSources }
             .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { "(${it.lang}) ${it.name}" })
 
-        return list.sortedBy { it.id.toString() !in pinnedSources }.toImmutableList()
+        return list.sortedBy { it.id.toString() !in pinnedSources }
     }
 
-    suspend fun getSourceSavedSearches(sourceId: Long): ImmutableList<SavedSearch> {
-        return getSavedSearchBySourceId.await(sourceId).toImmutableList()
+    suspend fun getSourceSavedSearches(sourceId: Long): List<SavedSearch> {
+        return getSavedSearchBySourceId.await(sourceId)
     }
 
-    fun createFeed(source: CatalogueSource, savedSearch: SavedSearch?) {
+    fun createFeed(source: Source, savedSearch: SavedSearch?) {
         screenModelScope.launchNonCancellable {
             insertFeedSavedSearch.await(
                 FeedSavedSearch(
@@ -203,7 +202,7 @@ open class FeedScreenModel(
     private fun createCatalogueSearchItem(
         feed: FeedSavedSearch,
         savedSearch: SavedSearch?,
-        source: CatalogueSource?,
+        source: Source?,
         results: List<DomainManga>?,
     ): FeedItemUI {
         return FeedItemUI(
@@ -249,9 +248,7 @@ open class FeedScreenModel(
 
                     val result = withIOContext {
                         itemUI.copy(
-                            results = page.map {
-                                networkToLocalManga.await(it.toDomainManga(itemUI.source!!.id))
-                            },
+                            results = networkToLocalManga(page.map { it.toDomainManga(itemUI.source!!.id) }),
                         )
                     }
 
@@ -267,7 +264,7 @@ open class FeedScreenModel(
 
     private val filterSerializer = FilterSerializer()
 
-    private fun getFilterList(savedSearch: SavedSearch, source: CatalogueSource): FilterList {
+    private fun getFilterList(savedSearch: SavedSearch, source: Source): FilterList {
         val filters = savedSearch.filtersJson ?: return FilterList()
         return runCatching {
             val originalFilters = source.getFilterList()
@@ -299,8 +296,8 @@ open class FeedScreenModel(
     }
 
     sealed class Dialog {
-        data class AddFeed(val options: ImmutableList<CatalogueSource>) : Dialog()
-        data class AddFeedSearch(val source: CatalogueSource, val options: ImmutableList<SavedSearch?>) : Dialog()
+        data class AddFeed(val options: List<Source>) : Dialog()
+        data class AddFeedSearch(val source: Source, val options: List<SavedSearch?>) : Dialog()
         data class DeleteFeed(val feed: FeedSavedSearch) : Dialog()
     }
 

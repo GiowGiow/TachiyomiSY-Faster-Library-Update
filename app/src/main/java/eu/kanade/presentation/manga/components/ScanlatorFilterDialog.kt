@@ -27,18 +27,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import kotlinx.collections.immutable.ImmutableSet
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.TextButton
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.util.isScrolledToEnd
-import tachiyomi.presentation.core.util.isScrolledToStart
 
 @Composable
 fun ScanlatorFilterDialog(
-    availableScanlators: ImmutableSet<String>,
-    excludedScanlators: ImmutableSet<String>,
+    availableScanlators: Set<String>,
+    excludedScanlators: Set<String>,
     onDismissRequest: () -> Unit,
     onConfirm: (Set<String>) -> Unit,
 ) {
@@ -97,8 +94,8 @@ fun ScanlatorFilterDialog(
                         }
                     }
                 }
-                if (!state.isScrolledToStart()) HorizontalDivider(modifier = Modifier.align(Alignment.TopCenter))
-                if (!state.isScrolledToEnd()) HorizontalDivider(modifier = Modifier.align(Alignment.BottomCenter))
+                if (state.canScrollBackward) HorizontalDivider(modifier = Modifier.align(Alignment.TopCenter))
+                if (state.canScrollForward) HorizontalDivider(modifier = Modifier.align(Alignment.BottomCenter))
             }
         },
         properties = DialogProperties(
@@ -111,8 +108,14 @@ fun ScanlatorFilterDialog(
                 }
             } else {
                 FlowRow {
-                    TextButton(onClick = mutableExcludedScanlators::clear) {
-                        Text(text = stringResource(MR.strings.action_reset))
+                    if (mutableExcludedScanlators.isEmpty()) {
+                        TextButton(onClick = { mutableExcludedScanlators.addAll(availableScanlators) }) {
+                            Text(text = stringResource(MR.strings.action_select_all))
+                        }
+                    } else {
+                        TextButton(onClick = mutableExcludedScanlators::clear) {
+                            Text(text = stringResource(MR.strings.action_reset))
+                        }
                     }
                     Spacer(modifier = Modifier.weight(1f))
                     TextButton(onClick = onDismissRequest) {

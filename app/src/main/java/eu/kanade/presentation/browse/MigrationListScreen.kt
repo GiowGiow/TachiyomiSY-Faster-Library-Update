@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material.icons.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.CopyAll
 import androidx.compose.material.icons.outlined.Done
@@ -28,9 +27,8 @@ import eu.kanade.presentation.browse.components.MigrationItem
 import eu.kanade.presentation.browse.components.MigrationItemResult
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
+import eu.kanade.presentation.util.animateItemFastScroll
 import eu.kanade.tachiyomi.ui.browse.migration.advanced.process.MigratingManga
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
@@ -43,7 +41,7 @@ import tachiyomi.presentation.core.util.plus
 
 @Composable
 fun MigrationListScreen(
-    items: ImmutableList<MigratingManga>,
+    items: List<MigratingManga>,
     migrationDone: Boolean,
     unfinishedCount: Int,
     getManga: suspend (MigratingManga.SearchResult.Result) -> Manga?,
@@ -68,7 +66,7 @@ fun MigrationListScreen(
                 title = title,
                 actions = {
                     AppBarActions(
-                        persistentListOf(
+                        listOf(
                             AppBar.Action(
                                 title = stringResource(MR.strings.copy),
                                 icon = if (items.size == 1) Icons.Outlined.ContentCopy else Icons.Outlined.CopyAll,
@@ -95,7 +93,7 @@ fun MigrationListScreen(
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .animateItemPlacement()
+                        .animateItemFastScroll()
                         .padding(horizontal = 16.dp)
                         .height(IntrinsicSize.Min),
                     horizontalArrangement = Arrangement.SpaceBetween,

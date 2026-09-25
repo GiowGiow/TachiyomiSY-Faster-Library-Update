@@ -1,16 +1,19 @@
 package tachiyomi.data.updates
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import tachiyomi.data.AndroidDatabaseHandler
-import tachiyomi.data.DatabaseHandler
+import tachiyomi.core.common.util.lang.toLong
+import tachiyomi.data.Database
+import tachiyomi.data.getUpdatesQuery
+import tachiyomi.data.subscribeToList
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.updates.model.UpdatesWithRelations
 import tachiyomi.domain.updates.repository.UpdatesRepository
 import tachiyomi.view.UpdatesView
 
 class UpdatesRepositoryImpl(
-    private val databaseHandler: DatabaseHandler,
+    private val database: Database,
 ) : UpdatesRepository {
 
     override suspend fun awaitWithRead(
@@ -18,25 +21,47 @@ class UpdatesRepositoryImpl(
         after: Long,
         limit: Long,
     ): List<UpdatesWithRelations> {
-        return databaseHandler.awaitList {
-            updatesViewQueries.getUpdatesByReadStatus(
+        return database.updatesViewQueries
+            .getUpdatesByReadStatus(
                 read = read,
                 after = after,
                 limit = limit,
                 mapper = ::mapUpdatesWithRelations,
             )
-        }
+            .awaitAsList()
     }
 
-    override fun subscribeAll(after: Long, limit: Long): Flow<List<UpdatesWithRelations>> {
-        return databaseHandler.subscribeToList {
-            updatesViewQueries.getRecentUpdates(after, limit, ::mapUpdatesWithRelations)
-        }.map {
-            databaseHandler.awaitListExecutable {
-                (databaseHandler as AndroidDatabaseHandler).getUpdatesQuery(after, limit)
+    override fun subscribeAll(
+        after: Long,
+        limit: Long,
+        unread: Boolean?,
+        started: Boolean?,
+        bookmarked: Boolean?,
+        hideExcludedScanlators: Boolean,
+    ): Flow<List<UpdatesWithRelations>> {
+        return database.updatesViewQueries
+            .getRecentUpdatesWithFilters(
+                after = after,
+                limit = limit,
+                read = unread?.let { !it },
+                started = started?.toLong(),
+                bookmarked = bookmarked,
+                hideExcludedScanlators = hideExcludedScanlators.toLong(),
+                mapper = ::mapUpdatesWithRelations,
+            )
+            .subscribeToList().map {
+                getUpdatesQuery(
+                    after = after,
+                    limit = limit,
+                    // invert because unread in Kotlin -> read column in SQL
+                    read = unread?.let { !it },
+                    started = started?.toLong(),
+                    bookmarked = bookmarked,
+                    hideExcludedScanlators = hideExcludedScanlators.toLong(),
+                )
+                    .awaitAsList()
+                    .map(::mapUpdatesView)
             }
-                .map(::mapUpdatesView)
-        }
     }
 
     override fun subscribeWithRead(
@@ -44,22 +69,24 @@ class UpdatesRepositoryImpl(
         after: Long,
         limit: Long,
     ): Flow<List<UpdatesWithRelations>> {
-        return databaseHandler.subscribeToList {
-            updatesViewQueries.getUpdatesByReadStatus(
+        return database.updatesViewQueries
+            .getUpdatesByReadStatus(
                 read = read,
                 after = after,
                 limit = limit,
                 mapper = ::mapUpdatesWithRelations,
             )
-        }
+            .subscribeToList()
     }
 
+    @Suppress("UNUSED_PARAMETER")
     private fun mapUpdatesWithRelations(
         mangaId: Long,
         mangaTitle: String,
         chapterId: Long,
         chapterName: String,
         scanlator: String?,
+        chapterUrl: String,
         read: Boolean,
         bookmark: Boolean,
         lastPageRead: Long,
@@ -69,6 +96,7 @@ class UpdatesRepositoryImpl(
         coverLastModified: Long,
         dateUpload: Long,
         dateFetch: Long,
+        excludedScanlator: String?,
     ): UpdatesWithRelations = UpdatesWithRelations(
         mangaId = mangaId,
         // SY -->
@@ -77,6 +105,7 @@ class UpdatesRepositoryImpl(
         chapterId = chapterId,
         chapterName = chapterName,
         scanlator = scanlator,
+        chapterUrl = chapterUrl,
         read = read,
         bookmark = bookmark,
         lastPageRead = lastPageRead,
@@ -98,6 +127,7 @@ class UpdatesRepositoryImpl(
             chapterId = updatesView.chapterId,
             chapterName = updatesView.chapterName,
             scanlator = updatesView.scanlator,
+            chapterUrl = updatesView.chapterUrl,
             read = updatesView.read,
             bookmark = updatesView.bookmark,
             lastPageRead = updatesView.last_page_read,

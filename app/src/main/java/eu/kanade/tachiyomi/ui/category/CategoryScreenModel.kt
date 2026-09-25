@@ -4,8 +4,6 @@ import androidx.compose.runtime.Immutable
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import dev.icerock.moko.resources.StringResource
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -39,8 +37,7 @@ class CategoryScreenModel(
                     mutableState.update {
                         CategoryScreenState.Success(
                             categories = categories
-                                .filterNot(Category::isSystemCategory)
-                                .toImmutableList(),
+                                .filterNot(Category::isSystemCategory),
                         )
                     }
                 }
@@ -65,27 +62,9 @@ class CategoryScreenModel(
         }
     }
 
-    fun sortAlphabetically() {
+    fun changeOrder(category: Category, newIndex: Int) {
         screenModelScope.launch {
-            when (reorderCategory.sortAlphabetically()) {
-                is ReorderCategory.Result.InternalError -> _events.send(CategoryEvent.InternalError)
-                else -> {}
-            }
-        }
-    }
-
-    fun moveUp(category: Category) {
-        screenModelScope.launch {
-            when (reorderCategory.moveUp(category)) {
-                is ReorderCategory.Result.InternalError -> _events.send(CategoryEvent.InternalError)
-                else -> {}
-            }
-        }
-    }
-
-    fun moveDown(category: Category) {
-        screenModelScope.launch {
-            when (reorderCategory.moveDown(category)) {
+            when (reorderCategory.await(category, newIndex)) {
                 is ReorderCategory.Result.InternalError -> _events.send(CategoryEvent.InternalError)
                 else -> {}
             }
@@ -122,7 +101,6 @@ class CategoryScreenModel(
 
 sealed interface CategoryDialog {
     data object Create : CategoryDialog
-    data object SortAlphabetically : CategoryDialog
     data class Rename(val category: Category) : CategoryDialog
     data class Delete(val category: Category) : CategoryDialog
 }
@@ -139,7 +117,7 @@ sealed interface CategoryScreenState {
 
     @Immutable
     data class Success(
-        val categories: ImmutableList<Category>,
+        val categories: List<Category>,
         val dialog: CategoryDialog? = null,
     ) : CategoryScreenState {
 

@@ -37,7 +37,6 @@ import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import eu.kanade.tachiyomi.data.database.models.toDomainChapter
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
-import kotlinx.collections.immutable.persistentMapOf
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.service.calculateChapterGap
 import tachiyomi.i18n.MR
@@ -226,7 +225,7 @@ private fun ChapterText(
         Text(
             text = buildAnnotatedString {
                 if (downloaded) {
-                    appendInlineContent(DownloadedIconContentId)
+                    appendInlineContent(DOWNLOADED_ICON_ID)
                     append(' ')
                 }
                 append(name)
@@ -235,8 +234,8 @@ private fun ChapterText(
             maxLines = 5,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.titleLarge,
-            inlineContent = persistentMapOf(
-                DownloadedIconContentId to InlineTextContent(
+            inlineContent = mapOf(
+                DOWNLOADED_ICON_ID to InlineTextContent(
                     Placeholder(
                         width = 22.sp,
                         height = 22.sp,
@@ -273,7 +272,7 @@ private val CardColor: CardColors
     )
 
 private val VerticalSpacerSize = 24.dp
-private const val DownloadedIconContentId = "downloaded"
+private const val DOWNLOADED_ICON_ID = "downloaded"
 
 private fun previewChapter(name: String, scanlator: String, chapterNumber: Double) = Chapter.create().copy(
     id = 0L,

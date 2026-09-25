@@ -25,8 +25,6 @@ import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.source.Source
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.source.isEhBasedSource
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.StateFlow
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.library.model.LibraryDisplayMode
@@ -82,12 +80,20 @@ fun BrowseSourceContent(
         }
     }
 
-    if (mangaList.itemCount <= 0 && errorState != null && errorState is LoadState.Error) {
+    if (mangaList.itemCount == 0 && mangaList.loadState.refresh is LoadState.Loading) {
+        LoadingScreen(Modifier.padding(contentPadding))
+        return
+    }
+
+    if (mangaList.itemCount == 0) {
         EmptyScreen(
             modifier = Modifier.padding(contentPadding),
-            message = getErrorMessage(errorState),
+            message = when (errorState) {
+                is LoadState.Error -> getErrorMessage(errorState)
+                else -> stringResource(MR.strings.no_results_found)
+            },
             actions = if (source is LocalSource /* SY --> */ && onLocalSourceHelpClick != null /* SY <-- */) {
-                persistentListOf(
+                listOf(
                     EmptyScreenAction(
                         stringRes = MR.strings.local_source_help_guide,
                         icon = Icons.AutoMirrored.Outlined.HelpOutline,
@@ -104,7 +110,7 @@ fun BrowseSourceContent(
                     // SY -->
                     if (onWebViewClick != null) {
                         EmptyScreenAction(
-                            MR.strings.action_open_in_web_view,
+                            stringRes = MR.strings.action_open_in_web_view,
                             icon = Icons.Outlined.Public,
                             onClick = onWebViewClick,
                         )
@@ -113,7 +119,7 @@ fun BrowseSourceContent(
                     },
                     if (onHelpClick != null) {
                         EmptyScreenAction(
-                            MR.strings.label_help,
+                            stringRes = MR.strings.label_help,
                             icon = Icons.AutoMirrored.Outlined.HelpOutline,
                             onClick = onHelpClick,
                         )
@@ -121,17 +127,10 @@ fun BrowseSourceContent(
                         null
                     },
                     // SY <--
-                ).toImmutableList()
+                )
             },
         )
 
-        return
-    }
-
-    if (mangaList.itemCount == 0 && mangaList.loadState.refresh is LoadState.Loading) {
-        LoadingScreen(
-            modifier = Modifier.padding(contentPadding),
-        )
         return
     }
 

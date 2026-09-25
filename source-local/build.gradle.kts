@@ -1,27 +1,31 @@
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+
 plugins {
-    id("mihon.library")
-    kotlin("multiplatform")
+    alias(mihonx.plugins.kotlin.multiplatform)
+    alias(mihonx.plugins.spotless)
 }
 
 kotlin {
-    androidTarget()
-    sourceSets {
-        val commonMain by getting {
-            dependencies {
-                implementation(projects.sourceApi)
-                api(projects.i18n)
-                // SY -->
-                api(projects.i18nSy)
-                // SY <--
+    android {
+        namespace = "tachiyomi.source.local"
 
-                implementation(libs.unifile)
-                implementation(libs.bundles.archive)
-                // SY -->
-                implementation(libs.zip4j)
-                // SY <--
-            }
-        }
-        val androidMain by getting {
+        // TODO(antsy): Remove when https://youtrack.jetbrains.com/issue/KT-83319 is resolved
+        withHostTest { }
+    }
+
+    @OptIn(ExperimentalKotlinGradlePluginApi::class)
+    dependencies {
+        implementation(projects.sourceApi)
+        api(projects.i18n)
+        // SY -->
+        api(projects.i18nSy)
+        // SY <--
+
+        implementation(libs.unifile)
+    }
+
+    sourceSets {
+        androidMain {
             dependencies {
                 implementation(projects.core.common)
                 implementation(projects.coreMetadata)
@@ -29,24 +33,14 @@ kotlin {
                 // Move ChapterRecognition to separate module?
                 implementation(projects.domain)
 
-                implementation(kotlinx.bundles.serialization)
+                implementation(libs.bundles.serialization)
             }
         }
     }
-}
 
-android {
-    namespace = "tachiyomi.source.local"
-
-    defaultConfig {
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        consumerProguardFiles("consumer-rules.pro")
-    }
-}
-
-tasks {
-    withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions.freeCompilerArgs += listOf(
+    @OptIn(ExperimentalKotlinGradlePluginApi::class)
+    compilerOptions {
+        freeCompilerArgs.addAll(
             "-Xexpect-actual-classes",
             "-opt-in=kotlinx.serialization.ExperimentalSerializationApi",
         )

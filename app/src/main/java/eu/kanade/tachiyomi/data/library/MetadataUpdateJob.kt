@@ -10,12 +10,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkQuery
 import androidx.work.WorkerParameters
-import eu.kanade.domain.manga.interactor.UpdateManga
-import eu.kanade.domain.manga.model.copyFrom
-import eu.kanade.domain.manga.model.toSManga
-import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.notification.Notifications
-import eu.kanade.tachiyomi.util.prepUpdateCover
 import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
@@ -27,25 +22,27 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import logcat.LogPriority
+import mihon.domain.source.interactor.UpdateMangaFromRemote
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.manga.model.toMangaUpdate
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.fetchAndIncrement
 
+@OptIn(ExperimentalAtomicApi::class)
 class MetadataUpdateJob(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
     private val sourceManager: SourceManager = Injekt.get()
-    private val coverCache: CoverCache = Injekt.get()
     private val getLibraryManga: GetLibraryManga = Injekt.get()
-    private val updateManga: UpdateManga = Injekt.get()
+    private val updateMangaFromRemote: UpdateMangaFromRemote = Injekt.get()
 
     private val notifier = LibraryUpdateNotifier(context)
 
@@ -97,7 +94,7 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
 
     private suspend fun updateMetadata() {
         val semaphore = Semaphore(5)
-        val progressCount = AtomicInteger(0)
+        val progressCount = AtomicInt(0)
         val currentlyUpdatingManga = CopyOnWriteArrayList<Manga>()
 
         coroutineScope {
@@ -117,14 +114,11 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
                                 ) {
                                     val source = sourceManager.get(manga.source) ?: return@withUpdateNotification
                                     try {
-                                        val networkManga = source.getMangaDetails(manga.toSManga())
-                                        val updatedManga = manga.prepUpdateCover(coverCache, networkManga, true)
-                                            .copyFrom(networkManga)
-                                        try {
-                                            updateManga.await(updatedManga.toMangaUpdate())
-                                        } catch (e: Exception) {
-                                            logcat(LogPriority.ERROR) { "Manga doesn't exist anymore" }
-                                        }
+                                        updateMangaFromRemote(
+                                            source = source,
+                                            manga = manga,
+                                            fetchDetails = true,
+                                        ).getOrThrow()
                                     } catch (e: Throwable) {
                                         // Ignore errors and continue
                                         logcat(LogPriority.ERROR, e)
@@ -142,7 +136,7 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
 
     private suspend fun withUpdateNotification(
         updatingManga: CopyOnWriteArrayList<Manga>,
-        completed: AtomicInteger,
+        completed: AtomicInt,
         manga: Manga,
         block: suspend () -> Unit,
     ) = coroutineScope {
@@ -151,7 +145,7 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
         updatingManga.add(manga)
         notifier.showProgressNotification(
             updatingManga,
-            completed.get(),
+            completed.load(),
             mangaToUpdate.size,
         )
 
@@ -160,10 +154,10 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
         ensureActive()
 
         updatingManga.remove(manga)
-        completed.getAndIncrement()
+        completed.fetchAndIncrement()
         notifier.showProgressNotification(
             updatingManga,
-            completed.get(),
+            completed.load(),
             mangaToUpdate.size,
         )
     }

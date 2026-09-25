@@ -1,15 +1,13 @@
 package eu.kanade.tachiyomi.data.track.kitsu
 
-import android.graphics.Color
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.DeletableTracker
+import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuOAuth
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.toImmutableList
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
@@ -28,15 +26,15 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
 
     override val supportsReadingDates: Boolean = true
 
+    override val supportsPrivateTracking: Boolean = true
+
     private val json: Json by injectLazy()
 
     private val interceptor by lazy { KitsuInterceptor(this) }
 
     private val api by lazy { KitsuApi(client, interceptor) }
 
-    override fun getLogo() = R.drawable.ic_tracker_kitsu
-
-    override fun getLogoColor() = Color.rgb(51, 37, 50)
+    override fun getLogo() = R.drawable.brand_kitsu
 
     override fun getStatusList(): List<Long> {
         return listOf(READING, COMPLETED, ON_HOLD, DROPPED, PLAN_TO_READ)
@@ -57,9 +55,9 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
 
     override fun getCompletionStatus(): Long = COMPLETED
 
-    override fun getScoreList(): ImmutableList<String> {
+    override fun getScoreList(): List<String> {
         val df = DecimalFormat("0.#")
-        return (listOf("0") + IntRange(2, 20).map { df.format(it / 2f) }).toImmutableList()
+        return (listOf("0") + IntRange(2, 20).map { df.format(it / 2f) })
     }
 
     override fun indexToScore(index: Int): Double {
@@ -100,8 +98,9 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
     override suspend fun bind(track: Track, hasReadChapters: Boolean): Track {
         val remoteTrack = api.findLibManga(track, getUserId())
         return if (remoteTrack != null) {
-            track.copyPersonalFrom(remoteTrack)
+            track.copyPersonalFrom(remoteTrack, copyRemotePrivate = false)
             track.remote_id = remoteTrack.remote_id
+            track.library_id = remoteTrack.library_id
 
             if (track.status != COMPLETED) {
                 track.status = if (hasReadChapters) READING else track.status
@@ -129,8 +128,9 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
     override suspend fun login(username: String, password: String) {
         val token = api.login(username, password)
         interceptor.newAuth(token)
-        val userId = api.getCurrentUser()
-        saveCredentials(username, userId)
+        val currentUser = api.getCurrentUser()
+        saveDisplayUsername(currentUser.attributes.name)
+        saveCredentials(username, currentUser.id)
     }
 
     override fun logout() {
@@ -138,18 +138,22 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
         interceptor.newAuth(null)
     }
 
+    override suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
+        return api.getMangaMetadata(track)
+    }
+
     private fun getUserId(): String {
         return getPassword()
     }
 
-    fun saveToken(oauth: OAuth?) {
+    fun saveToken(oauth: KitsuOAuth?) {
         trackPreferences.trackToken(this).set(json.encodeToString(oauth))
     }
 
-    fun restoreToken(): OAuth? {
+    fun restoreToken(): KitsuOAuth? {
         return try {
-            json.decodeFromString<OAuth>(trackPreferences.trackToken(this).get())
-        } catch (e: Exception) {
+            json.decodeFromString<KitsuOAuth>(trackPreferences.trackToken(this).get())
+        } catch (_: Exception) {
             null
         }
     }

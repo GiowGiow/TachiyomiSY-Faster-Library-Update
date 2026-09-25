@@ -19,7 +19,6 @@ import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.data.backup.models.Backup
 import eu.kanade.tachiyomi.util.system.copyToClipboard
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.serialization.protobuf.schema.ProtoBufSchemaGenerator
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -28,7 +27,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 class BackupSchemaScreen : Screen() {
 
     companion object {
-        const val title = "Backup file schema"
+        const val TITLE = "Backup file schema"
     }
 
     @Composable
@@ -41,16 +40,16 @@ class BackupSchemaScreen : Screen() {
         Scaffold(
             topBar = {
                 AppBar(
-                    title = title,
+                    title = TITLE,
                     navigateUp = navigator::pop,
                     actions = {
                         AppBarActions(
-                            persistentListOf(
+                            listOf(
                                 AppBar.Action(
                                     title = stringResource(MR.strings.action_copy_to_clipboard),
                                     icon = Icons.Default.ContentCopy,
                                     onClick = {
-                                        context.copyToClipboard(title, schema)
+                                        context.copyToClipboard(TITLE, schema)
                                     },
                                 ),
                             ),

@@ -6,6 +6,8 @@ import exh.metadata.metadata.EHentaiSearchMetadata
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.serialization.json.JsonObject
+import mihon.core.common.extensions.EMPTY
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.chapter.interactor.GetChapterByUrl
@@ -13,7 +15,7 @@ import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.chapter.repository.ChapterRepository
-import tachiyomi.domain.history.interactor.GetHistoryByMangaId
+import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.history.interactor.RemoveHistory
 import tachiyomi.domain.history.interactor.UpsertHistory
 import tachiyomi.domain.history.model.History
@@ -43,7 +45,7 @@ class EHentaiUpdateHelper(context: Context) {
     private val chapterRepository: ChapterRepository by injectLazy()
     private val upsertHistory: UpsertHistory by injectLazy()
     private val removeHistory: RemoveHistory by injectLazy()
-    private val getHistoryByMangaId: GetHistoryByMangaId by injectLazy()
+    private val getHistoryByMangaId: GetHistory by injectLazy()
     private val insertFavoriteEntryAlternative: InsertFavoriteEntryAlternative by injectLazy()
 
     /**
@@ -54,7 +56,7 @@ class EHentaiUpdateHelper(context: Context) {
     suspend fun findAcceptedRootAndDiscardOthers(
         sourceId: Long,
         chapters: List<Chapter>,
-    ): Triple<ChapterChain, List<ChapterChain>, Boolean> {
+    ): Triple<ChapterChain, List<ChapterChain>, List<Chapter>> {
         // Find other chains
         val chains = chapters
             .flatMap { chapter ->
@@ -149,7 +151,7 @@ class EHentaiUpdateHelper(context: Context) {
                 setMangaCategories.await(it.manga.id, newCategories)
             }
 
-            Triple(newAccepted, toDiscard, new)
+            Triple(newAccepted, toDiscard, newChapters)
         } else {
             /*val notNeeded = chains.filter { it.manga.id != accepted.manga.id }
             val (newChapters, new) = getChapterList(accepted, notNeeded, chainsAsChapters)
@@ -158,7 +160,7 @@ class EHentaiUpdateHelper(context: Context) {
             // Insert new chapters for accepted manga
             db.insertChapters(newAccepted.chapters).await()*/
 
-            Triple(accepted, emptyList(), false)
+            Triple(accepted, emptyList(), emptyList())
         }
     }
 
@@ -255,6 +257,7 @@ class EHentaiUpdateHelper(context: Context) {
                         sourceOrder = -1,
                         lastModifiedAt = 0,
                         version = 0,
+                        memo = JsonObject.EMPTY,
                     )
                 }
             }

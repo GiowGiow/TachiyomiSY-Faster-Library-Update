@@ -8,12 +8,15 @@ import uy.kohesive.injekt.api.get
 
 data class LibraryItem(
     val libraryManga: LibraryManga,
-    val downloadCount: Long = -1,
+    val downloadCount: Int = -1,
     val unreadCount: Long = -1,
     val isLocal: Boolean = false,
     val sourceLanguage: String = "",
     private val sourceManager: SourceManager = Injekt.get(),
+    val badges: Badges,
 ) {
+    val id: Long = libraryManga.id
+
     /**
      * Checks if a query matches the manga
      *
@@ -21,7 +24,10 @@ data class LibraryItem(
      * @return true if the manga matches the query, false otherwise.
      */
     fun matches(constraint: String): Boolean {
-        val sourceName by lazy { sourceManager.getOrStub(libraryManga.manga.source).getNameForMangaInfo(null) }
+        val sourceName by lazy { sourceManager.getOrStub(libraryManga.manga.source).getNameForMangaInfo() }
+        if (constraint.startsWith("id:", true)) {
+            return id == constraint.substringAfter("id:").toLongOrNull()
+        }
         return libraryManga.manga.title.contains(constraint, true) ||
             (libraryManga.manga.author?.contains(constraint, true) ?: false) ||
             (libraryManga.manga.artist?.contains(constraint, true) ?: false) ||
@@ -52,4 +58,11 @@ data class LibraryItem(
             predicate(constraint)
         }
     }
+
+    data class Badges(
+        val downloadCount: Int,
+        val unreadCount: Long,
+        val isLocal: Boolean,
+        val sourceLanguage: String,
+    )
 }

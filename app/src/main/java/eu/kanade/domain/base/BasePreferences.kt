@@ -2,25 +2,29 @@ package eu.kanade.domain.base
 
 import android.content.Context
 import dev.icerock.moko.resources.StringResource
+import eu.kanade.tachiyomi.util.system.GLUtil
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.i18n.MR
 
 class BasePreferences(
     val context: Context,
-    private val preferenceStore: PreferenceStore,
+    preferenceStore: PreferenceStore,
 ) {
 
-    fun downloadedOnly() = preferenceStore.getBoolean(
+    val downloadedOnly: Preference<Boolean> = preferenceStore.getBoolean(
         Preference.appStateKey("pref_downloaded_only"),
         false,
     )
 
-    fun incognitoMode() = preferenceStore.getBoolean(Preference.appStateKey("incognito_mode"), false)
+    val incognitoMode: Preference<Boolean> = preferenceStore.getBoolean(Preference.appStateKey("incognito_mode"), false)
 
-    fun extensionInstaller() = ExtensionInstallerPreference(context, preferenceStore)
+    val extensionInstaller: ExtensionInstallerPreference = ExtensionInstallerPreference(context, preferenceStore)
 
-    fun shownOnboardingFlow() = preferenceStore.getBoolean(Preference.appStateKey("onboarding_complete"), false)
+    val shownOnboardingFlow: Preference<Boolean> = preferenceStore.getBoolean(
+        Preference.appStateKey("onboarding_complete"),
+        false,
+    )
 
     enum class ExtensionInstaller(val titleRes: StringResource, val requiresSystemPermission: Boolean) {
         LEGACY(MR.strings.ext_installer_legacy, true),
@@ -29,5 +33,17 @@ class BasePreferences(
         PRIVATE(MR.strings.ext_installer_private, false),
     }
 
-    fun displayProfile() = preferenceStore.getString("pref_display_profile_key", "")
+    val displayProfile: Preference<String> = preferenceStore.getString("pref_display_profile_key", "")
+
+    val hardwareBitmapThreshold: Preference<Int> = preferenceStore.getInt(
+        "pref_hardware_bitmap_threshold",
+        GLUtil.SAFE_TEXTURE_LIMIT,
+    )
+
+    val alwaysDecodeLongStripWithSSIV: Preference<Boolean> = preferenceStore.getBoolean(
+        "pref_always_decode_long_strip_with_ssiv",
+        false,
+    )
+
+    val installationId: Preference<String> = preferenceStore.getString(Preference.appStateKey("installation_id"), "")
 }

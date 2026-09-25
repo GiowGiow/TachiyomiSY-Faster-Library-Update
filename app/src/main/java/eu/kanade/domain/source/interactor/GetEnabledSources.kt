@@ -18,24 +18,25 @@ class GetEnabledSources(
 
     fun subscribe(): Flow<List<Source>> {
         return combine(
-            preferences.pinnedSources().changes(),
+            preferences.pinnedSources.changes(),
             combine(
-                preferences.enabledLanguages().changes(),
-                preferences.disabledSources().changes(),
-                preferences.lastUsedSource().changes(),
+                preferences.enabledLanguages.changes(),
+                preferences.disabledSources.changes(),
+                preferences.lastUsedSource.changes(),
             ) { a, b, c -> Triple(a, b, c) },
             // SY -->
             combine(
-                preferences.dataSaverExcludedSources().changes(),
-                preferences.sourcesTabSourcesInCategories().changes(),
-                preferences.sourcesTabCategoriesFilter().changes(),
+                preferences.dataSaverExcludedSources.changes(),
+                preferences.sourcesTabSourcesInCategories.changes(),
+                preferences.sourcesTabCategoriesFilter.changes(),
             ) { a, b, c -> Triple(a, b, c) },
             // SY <--
             repository.getSources(),
-        ) { pinnedSourceIds,
-            (enabledLanguages, disabledSources, lastUsedSource),
-            (excludedFromDataSaver, sourcesInCategories, sourceCategoriesFilter),
-            sources,
+        ) {
+                pinnedSourceIds,
+                (enabledLanguages, disabledSources, lastUsedSource),
+                (excludedFromDataSaver, sourcesInCategories, sourceCategoriesFilter),
+                sources,
             ->
 
             val sourcesAndCategories = sourcesInCategories.map {

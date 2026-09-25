@@ -6,19 +6,19 @@ import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import eu.kanade.domain.extension.interactor.ExtensionSourceItem
 import eu.kanade.domain.extension.interactor.GetExtensionSources
+import eu.kanade.domain.source.interactor.ToggleIncognito
 import eu.kanade.domain.source.interactor.ToggleSource
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.system.LocaleHelper
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
@@ -36,6 +36,8 @@ class ExtensionDetailsScreenModel(
     private val extensionManager: ExtensionManager = Injekt.get(),
     private val getExtensionSources: GetExtensionSources = Injekt.get(),
     private val toggleSource: ToggleSource = Injekt.get(),
+    private val toggleIncognito: ToggleIncognito = Injekt.get(),
+    private val preferences: SourcePreferences = Injekt.get(),
 ) : StateScreenModel<ExtensionDetailsScreenModel.State>(State()) {
 
     private val _events: Channel<ExtensionDetailsEvent> = Channel()
@@ -73,12 +75,21 @@ class ExtensionDetailsScreenModel(
                         }
                         .catch { throwable ->
                             logcat(LogPriority.ERROR, throwable)
-                            mutableState.update { it.copy(_sources = persistentListOf()) }
+                            mutableState.update { it.copy(_sources = listOf()) }
                         }
                         .collectLatest { sources ->
-                            mutableState.update { it.copy(_sources = sources.toImmutableList()) }
+                            mutableState.update { it.copy(_sources = sources) }
                         }
                 }
+            }
+            launch {
+                preferences.incognitoExtensions
+                    .changes()
+                    .map { pkgName in it }
+                    .distinctUntilChanged()
+                    .collectLatest { isIncognito ->
+                        mutableState.update { it.copy(isIncognito = isIncognito) }
+                    }
             }
         }
     }
@@ -88,7 +99,8 @@ class ExtensionDetailsScreenModel(
 
         val urls = extension.sources
             .filterIsInstance<HttpSource>()
-            .mapNotNull { it.baseUrl.takeUnless { url -> url.isEmpty() } }
+            .flatMap { listOf(it.baseUrl, it.getHomeUrl()) }
+            .filter { it.isNotEmpty() }
             .distinct()
 
         val cleared = urls.sumOf {
@@ -118,14 +130,21 @@ class ExtensionDetailsScreenModel(
             ?.let { toggleSource.await(it, enable) }
     }
 
+    fun toggleIncognito(enable: Boolean) {
+        state.value.extension?.pkgName?.let { packageName ->
+            toggleIncognito.await(packageName, enable)
+        }
+    }
+
     @Immutable
     data class State(
         val extension: Extension.Installed? = null,
-        private val _sources: ImmutableList<ExtensionSourceItem>? = null,
+        val isIncognito: Boolean = false,
+        private val _sources: List<ExtensionSourceItem>? = null,
     ) {
 
-        val sources: ImmutableList<ExtensionSourceItem>
-            get() = _sources ?: persistentListOf()
+        val sources: List<ExtensionSourceItem>
+            get() = _sources ?: listOf()
 
         val isLoading: Boolean
             get() = extension == null || _sources == null

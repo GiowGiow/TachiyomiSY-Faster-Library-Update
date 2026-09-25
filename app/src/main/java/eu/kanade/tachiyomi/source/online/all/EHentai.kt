@@ -20,6 +20,7 @@ import eu.kanade.tachiyomi.source.model.MetadataMangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.model.SMangaUpdate
 import eu.kanade.tachiyomi.source.model.copy
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
@@ -44,6 +45,7 @@ import exh.metadata.metadata.EHentaiSearchMetadata.Companion.TAG_TYPE_WEAK
 import exh.metadata.metadata.RaisedSearchMetadata.Companion.TAG_TYPE_VIRTUAL
 import exh.metadata.metadata.RaisedSearchMetadata.Companion.toGenreString
 import exh.metadata.metadata.base.RaisedTag
+import exh.source.ExhPreferences
 import exh.ui.login.EhLoginActivity
 import exh.util.UriFilter
 import exh.util.UriGroup
@@ -55,6 +57,8 @@ import exh.util.trimAll
 import exh.util.trimOrNull
 import exh.util.urlImportFetchSearchManga
 import exh.util.urlImportFetchSearchMangaSuspend
+import kotlinx.coroutines.async
+import kotlinx.coroutines.supervisorScope
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
@@ -84,7 +88,6 @@ import org.jsoup.nodes.TextNode
 import rx.Observable
 import tachiyomi.core.common.util.lang.runAsObservable
 import tachiyomi.core.common.util.lang.withIOContext
-import tachiyomi.domain.UnsortedPreferences
 import uy.kohesive.injekt.injectLazy
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -117,7 +120,7 @@ class EHentai(
     override val lang = "all"
     override val supportsLatest = true
 
-    private val preferences: UnsortedPreferences by injectLazy()
+    private val exhPreferences: ExhPreferences by injectLazy()
     private val updateHelper: EHentaiUpdateHelper by injectLazy()
 
     /**
@@ -330,7 +333,27 @@ class EHentai(
         )
     }
 
-    override suspend fun getChapterList(manga: SManga): List<SChapter> = getChapterList(manga) {}
+    override suspend fun getMangaUpdate(
+        manga: SManga,
+        chapters: List<SChapter>,
+        fetchDetails: Boolean,
+        fetchChapters: Boolean,
+    ): SMangaUpdate = getMangaUpdate(manga, chapters, fetchDetails, fetchChapters) {}
+
+    suspend fun getMangaUpdate(
+        manga: SManga,
+        chapters: List<SChapter>,
+        fetchDetails: Boolean,
+        fetchChapters: Boolean,
+        throttleFunc: suspend () -> Unit,
+    ): SMangaUpdate = supervisorScope {
+        val mangaDetails = if (fetchDetails) async { getMangaDetails(manga) } else null
+        val chapterDetails = if (fetchChapters) async { getChapterList(manga, throttleFunc) } else null
+
+        SMangaUpdate(mangaDetails?.await() ?: manga, chapterDetails?.await() ?: chapters)
+    }
+
+    suspend fun getChapterList(manga: SManga): List<SChapter> = getChapterList(manga) {}
 
     suspend fun getChapterList(manga: SManga, throttleFunc: suspend () -> Unit): List<SChapter> {
         // Pull all the way to the root gallery
@@ -383,7 +406,7 @@ class EHentai(
                 doc.select("#gdd .gdt1").find { el ->
                     el.text().lowercase() == "posted:"
                 }!!.nextElementSibling()!!.text(),
-                MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC)
+                MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC),
             )!!.toInstant().toEpochMilli(),
             scanlator = EHentaiSearchMetadata.galleryId(location),
         )
@@ -401,7 +424,7 @@ class EHentai(
                     chapter_number = index + 2f,
                     date_upload = ZonedDateTime.parse(
                         posted,
-                        MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC)
+                        MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC),
                     ).toInstant().toEpochMilli(),
                     scanlator = EHentaiSearchMetadata.galleryId(link),
                 )
@@ -449,7 +472,11 @@ class EHentai(
     private fun parseChapterPage(response: Element) = with(response) {
         select(".gdtm a").map {
             Pair(it.child(0).attr("alt").toInt(), it.attr("href"))
-        }.sortedBy(Pair<Int, String>::first).map { it.second }
+        }.plus(
+            select("#gdt a").map {
+                Pair(it.child(0).attr("title").removePrefix("Page ").substringBefore(":").toInt(), it.attr("href"))
+            },
+        ).sortedBy(Pair<Int, String>::first).map { it.second }
     }
 
     private fun chapterPageCall(np: String): Observable<Response> {
@@ -472,7 +499,7 @@ class EHentai(
     }
 
     private fun <T : MangasPage> T.checkValid(): MangasPage =
-        if (exh && mangas.isEmpty() && preferences.igneousVal().get().equals("mystery", true)) {
+        if (exh && mangas.isEmpty() && exhPreferences.igneousVal.get().equals("mystery", true)) {
             throw Exception(
                 "Invalid igneous cookie, try re-logging or finding a correct one to input in the login menu",
             )
@@ -542,9 +569,10 @@ class EHentai(
             if (
                 MATCH_SEEK_REGEX.matches(jumpSeekValue) ||
                 (
-                    MATCH_YEAR_REGEX.matches(jumpSeekValue) && jumpSeekValue.toIntOrNull()?.let {
-                        it in 2007..2099
-                    } == true
+                    MATCH_YEAR_REGEX.matches(jumpSeekValue) &&
+                        jumpSeekValue.toIntOrNull()?.let {
+                            it in 2007..2099
+                        } == true
                     )
             ) {
                 uri.appendQueryParameter("seek", jumpSeekValue)
@@ -646,7 +674,7 @@ class EHentai(
             }
     }
 
-    override suspend fun getMangaDetails(manga: SManga): SManga {
+    suspend fun getMangaDetails(manga: SManga): SManga {
         val exception = Exception("Async stacktrace")
         val response = client.newCall(mangaDetailsRequest(manga)).await()
         if (response.isSuccessful) {
@@ -663,7 +691,9 @@ class EHentai(
             } else {
                 doc
             }
-            return parseToManga(manga, pre)
+            return parseToManga(manga, pre).apply {
+                initialized = true
+            }
         } else {
             response.close()
 
@@ -715,7 +745,7 @@ class EHentai(
                             when (left.removeSuffix(":").lowercase()) {
                                 "posted" -> datePosted = ZonedDateTime.parse(
                                     right,
-                                    MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC)
+                                    MetadataUtil.EX_DATE_FORMAT.withZone(ZoneOffset.UTC),
                                 ).toInstant().toEpochMilli()
                                 // Example gallery with parent: https://e-hentai.org/g/1390451/7f181c2426/
                                 // Example JP gallery: https://exhentai.org/g/1375385/03519d541b/
@@ -799,9 +829,6 @@ class EHentai(
 
     override fun chapterListParse(response: Response) =
         throw UnsupportedOperationException("Unused method was called somehow!")
-    override fun chapterPageParse(
-        response: Response,
-    ) = throw UnsupportedOperationException("Unused method was called somehow!")
 
     override fun pageListParse(response: Response) =
         throw UnsupportedOperationException("Unused method was called somehow!")
@@ -874,30 +901,30 @@ class EHentai(
     }
 
     fun spPref() = if (exh) {
-        preferences.exhSettingsProfile()
+        exhPreferences.exhSettingsProfile
     } else {
-        preferences.ehSettingsProfile()
+        exhPreferences.ehSettingsProfile
     }
 
     private fun rawCookies(sp: Int): Map<String, String> {
         val cookies: MutableMap<String, String> = mutableMapOf()
-        if (preferences.enableExhentai().get()) {
-            cookies[EhLoginActivity.MEMBER_ID_COOKIE] = preferences.memberIdVal().get()
-            cookies[EhLoginActivity.PASS_HASH_COOKIE] = preferences.passHashVal().get()
-            cookies[EhLoginActivity.IGNEOUS_COOKIE] = preferences.igneousVal().get()
+        if (exhPreferences.enableExhentai.get()) {
+            cookies[EhLoginActivity.MEMBER_ID_COOKIE] = exhPreferences.memberIdVal.get()
+            cookies[EhLoginActivity.PASS_HASH_COOKIE] = exhPreferences.passHashVal.get()
+            cookies[EhLoginActivity.IGNEOUS_COOKIE] = exhPreferences.igneousVal.get()
             cookies["sp"] = sp.toString()
 
-            val sessionKey = preferences.exhSettingsKey().get()
+            val sessionKey = exhPreferences.exhSettingsKey.get()
             if (sessionKey.isNotBlank()) {
                 cookies["sk"] = sessionKey
             }
 
-            val sessionCookie = preferences.exhSessionCookie().get()
+            val sessionCookie = exhPreferences.exhSessionCookie.get()
             if (sessionCookie.isNotBlank()) {
                 cookies["s"] = sessionCookie
             }
 
-            val hathPerksCookie = preferences.exhHathPerksCookies().get()
+            val hathPerksCookie = exhPreferences.exhHathPerksCookies.get()
             if (hathPerksCookie.isNotBlank()) {
                 cookies["hath_perks"] = hathPerksCookie
             }
@@ -944,7 +971,7 @@ class EHentai(
             ToplistOptions(),
             Filter.Separator(),
             AutoCompleteTags(),
-            Watched(isEnabled = preferences.exhWatchedListDefaultState().get()),
+            Watched(isEnabled = exhPreferences.exhWatchedListDefaultState.get()),
             GenreGroup(),
             AdvancedGroup(),
             ReverseFilter(),
@@ -1213,7 +1240,8 @@ class EHentai(
 
         val body = doc.body()
         val previews = body
-            .select("#gdt div div")
+            .select("#gdt > div > div")
+            .plus(body.select("#gdt > a"))
             .map {
                 val preview = parseNormalPreview(it)
                 PagePreviewInfo(preview.index, imageUrl = preview.toUrl())
@@ -1249,8 +1277,15 @@ class EHentai(
      * Parse normal previews with regular expressions
      */
     private fun parseNormalPreview(element: Element): EHentaiThumbnailPreview {
-        val index = element.selectFirst("img")!!.attr("alt").toInt()
-        val styles = element.attr("style").split(";").mapNotNull { it.trimOrNull() }
+        val imgElement = element.selectFirst("img")
+        val index = imgElement?.attr("alt")?.toInt()
+            ?: element.child(0).attr("title").removePrefix("Page ").substringBefore(":").toInt()
+        val styleElement = if (imgElement != null) {
+            element
+        } else {
+            element.child(0)
+        }
+        val styles = styleElement.attr("style").split(";").mapNotNull { it.trimOrNull() }
         val width = styles.first { it.startsWith("width:") }
             .removePrefix("width:")
             .removeSuffix("px")
@@ -1274,7 +1309,7 @@ class EHentai(
             .removeSuffix("px")
             .toInt()
 
-        return EHentaiThumbnailPreview(url, width, height, widthOffset, index).also(::println)
+        return EHentaiThumbnailPreview(url, width, height, widthOffset, index)
     }
     data class EHentaiThumbnailPreview(
         val imageUrl: String,
@@ -1347,7 +1382,7 @@ class EHentai(
         private const val BLANK_PREVIEW_THUMB = "https://$THUMB_DOMAIN/g/$BLANK_THUMB"
 
         private val MATCH_YEAR_REGEX = "^\\d{4}\$".toRegex()
-        private val MATCH_SEEK_REGEX = "^\\d{2,4}-\\d{1,2}".toRegex()
+        private val MATCH_SEEK_REGEX = "^\\d{2,4}-\\d{1,2}(-\\d{1,2})?".toRegex()
         private val MATCH_JUMP_REGEX = "^\\d+(\$|d\$|w\$|m\$|y\$|-\$)".toRegex()
 
         private const val EH_API_BASE = "https://api.e-hentai.org/api.php"

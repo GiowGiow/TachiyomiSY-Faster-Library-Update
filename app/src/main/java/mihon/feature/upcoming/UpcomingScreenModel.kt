@@ -4,14 +4,8 @@ import androidx.compose.ui.util.fastMap
 import androidx.compose.ui.util.fastMapIndexedNotNull
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
-import eu.kanade.core.util.insertSeparators
+import eu.kanade.core.util.insertSeparatorsReversed
 import eu.kanade.tachiyomi.util.lang.toLocalDate
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.persistentMapOf
-import kotlinx.collections.immutable.toImmutableList
-import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -33,7 +27,7 @@ class UpcomingScreenModel(
                     val upcomingItems = it.toUpcomingUIModels()
                     state.copy(
                         items = upcomingItems,
-                        events = it.toEvents(),
+                        events = upcomingItems.toEvents(),
                         headerIndexes = upcomingItems.getHeaderIndexes(),
                     )
                 }
@@ -41,28 +35,29 @@ class UpcomingScreenModel(
         }
     }
 
-    private fun List<Manga>.toUpcomingUIModels(): ImmutableList<UpcomingUIModel> {
+    private fun List<Manga>.toUpcomingUIModels(): List<UpcomingUIModel> {
+        var mangaCount = 0
         return fastMap { UpcomingUIModel.Item(it) }
-            .insertSeparators { before, after ->
+            .insertSeparatorsReversed { before, after ->
+                if (after != null) mangaCount++
+
                 val beforeDate = before?.manga?.expectedNextUpdate?.toLocalDate()
                 val afterDate = after?.manga?.expectedNextUpdate?.toLocalDate()
 
                 if (beforeDate != afterDate && afterDate != null) {
-                    UpcomingUIModel.Header(afterDate)
+                    UpcomingUIModel.Header(afterDate, mangaCount).also { mangaCount = 0 }
                 } else {
                     null
                 }
             }
-            .toImmutableList()
     }
 
-    private fun List<Manga>.toEvents(): ImmutableMap<LocalDate, Int> {
-        return groupBy { it.expectedNextUpdate?.toLocalDate() ?: LocalDate.MAX }
-            .mapValues { it.value.size }
-            .toImmutableMap()
+    private fun List<UpcomingUIModel>.toEvents(): Map<LocalDate, Int> {
+        return filterIsInstance<UpcomingUIModel.Header>()
+            .associate { it.date to it.mangaCount }
     }
 
-    private fun List<UpcomingUIModel>.getHeaderIndexes(): ImmutableMap<LocalDate, Int> {
+    private fun List<UpcomingUIModel>.getHeaderIndexes(): Map<LocalDate, Int> {
         return fastMapIndexedNotNull { index, upcomingUIModel ->
             if (upcomingUIModel is UpcomingUIModel.Header) {
                 upcomingUIModel.date to index
@@ -71,7 +66,6 @@ class UpcomingScreenModel(
             }
         }
             .toMap()
-            .toImmutableMap()
     }
 
     fun setSelectedYearMonth(yearMonth: YearMonth) {
@@ -80,8 +74,8 @@ class UpcomingScreenModel(
 
     data class State(
         val selectedYearMonth: YearMonth = YearMonth.now(),
-        val items: ImmutableList<UpcomingUIModel> = persistentListOf(),
-        val events: ImmutableMap<LocalDate, Int> = persistentMapOf(),
-        val headerIndexes: ImmutableMap<LocalDate, Int> = persistentMapOf(),
+        val items: List<UpcomingUIModel> = listOf(),
+        val events: Map<LocalDate, Int> = mapOf(),
+        val headerIndexes: Map<LocalDate, Int> = mapOf(),
     )
 }

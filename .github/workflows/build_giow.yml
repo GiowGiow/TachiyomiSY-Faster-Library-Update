@@ -1,0 +1,116 @@
+name: Build TachiyomiSYGiow APK
+
+on:
+  push:
+    branches:
+      - 'master'
+      - 'claude/**'
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build signed APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Set up gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      # The "foss" build type is a release build without Firebase, so it does
+      # not need the upstream google-services.json / client_secrets.json secrets.
+      - name: Build app
+        run: ./gradlew assembleFoss
+
+      # Uses the SIGNING_KEY/ALIAS/KEY_STORE_PASSWORD/KEY_PASSWORD secrets when
+      # they are configured. Without them a throwaway key is generated, so the
+      # APK installs but cannot update an app signed with a different key.
+      - name: Sign APKs
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          ALIAS: ${{ secrets.ALIAS }}
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -e
+          if [ -n "$SIGNING_KEY" ]; then
+            echo "$SIGNING_KEY" | base64 -d > "$RUNNER_TEMP/signing.jks"
+            KS="$RUNNER_TEMP/signing.jks"
+          else
+            echo "::warning::SIGNING_KEY secret not set, signing with a throwaway key"
+            KS="$RUNNER_TEMP/throwaway.jks"
+            ALIAS=throwaway
+            KEY_STORE_PASSWORD=$(openssl rand -hex 16)
+            KEY_PASSWORD=$KEY_STORE_PASSWORD
+            keytool -genkeypair -keystore "$KS" -storetype PKCS12 -alias "$ALIAS" \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$KEY_STORE_PASSWORD" -keypass "$KEY_PASSWORD" \
+              -dname "CN=TachiyomiSYGiow"
+          fi
+
+          BUILD_TOOLS=$(ls "$ANDROID_SDK_ROOT/build-tools" | sort -V | tail -1)
+          APKSIGNER="$ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS/apksigner"
+          OUT=app/build/outputs/apk/foss
+
+          sign() {
+            "$APKSIGNER" sign --ks "$KS" --ks-key-alias "$ALIAS" \
+              --ks-pass "pass:$KEY_STORE_PASSWORD" --key-pass "pass:$KEY_PASSWORD" \
+              --out "$2" "$1"
+            "$APKSIGNER" verify "$2"
+          }
+
+          sign "$OUT/app-universal-foss-unsigned.apk" TachiyomiSYGiow.apk
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            sign "$OUT/app-$abi-foss-unsigned.apk" "TachiyomiSYGiow-$abi.apk"
+          done
+
+          VERSION=$(grep -m1 'versionName = ' app/build.gradle.kts | sed -E 's/.*"(.*)".*/\1/')
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          {
+            echo "SHA_UNIVERSAL=$(sha256sum TachiyomiSYGiow.apk | awk '{ print $1 }')"
+            echo "SHA_ARM64=$(sha256sum TachiyomiSYGiow-arm64-v8a.apk | awk '{ print $1 }')"
+          } >> "$GITHUB_ENV"
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: TachiyomiSYGiow-${{ env.VERSION }}-${{ github.run_number }}
+          path: TachiyomiSYGiow*.apk
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: giow-${{ env.VERSION }}-${{ github.run_number }}
+          name: TachiyomiSYGiow ${{ env.VERSION }} (build ${{ github.run_number }})
+          target_commitish: ${{ github.sha }}
+          body: |
+            TachiyomiSY ${{ env.VERSION }} with faster library update intervals.
+            Built from ${{ github.sha }} on `${{ github.ref_name }}`.
+
+            | Variant | SHA-256 |
+            | ------- | ------- |
+            | Universal | ${{ env.SHA_UNIVERSAL }} |
+            | arm64-v8a | ${{ env.SHA_ARM64 }} |
+
+            If unsure, install **TachiyomiSYGiow-arm64-v8a.apk** (most phones) or TachiyomiSYGiow.apk.
+          files: TachiyomiSYGiow*.apk
+          prerelease: ${{ github.ref_name != 'master' }}

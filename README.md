@@ -4,7 +4,7 @@
 
 
 # ![app icon](./.github/readme-images/app-icon.png)TachiyomiSY
-Mihon is a free and open source manga reader for Android 6.0 and above. This version of Mihon, TachiyomiSY was based off TachiyomiAZ. This version is meant to push forward in the ways of usability and features. TachiyomiSY tries to push forward where it can, but staying in a place where it can easily grab updates and features from the main app, it tries to make new features, or take features from other forks like J2K and Neko.
+Mihon is a free and open source manga reader for Android 8.0 and above. This version of Mihon, TachiyomiSY was based off TachiyomiAZ. This version is meant to push forward in the ways of usability and features. TachiyomiSY tries to push forward where it can, but staying in a place where it can easily grab updates and features from the main app, it tries to make new features, or take features from other forks like J2K and Neko.
 
 ![screenshots of app](./.github/readme-images/screens.png)
 
@@ -14,7 +14,7 @@ Features of Mihon(original) include:
 * Online reading from a variety of sources
 * Local reading of downloaded content
 * A configurable reader with multiple viewers, reading directions and other settings.
-* Tracker support: [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.io/), [MangaUpdates](https://mangaupdates.com), [Shikimori](https://shikimori.one), and [Bangumi](https://bgm.tv/) support
+* Tracker support: [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://mangaupdates.com), [Shikimori](https://shikimori.one), [Bangumi](https://bgm.tv/) and [Hikka](https://hikka.io/) support.
 * Categories to organize your library
 * Light and dark themes
 * Schedule updating your library for new chapters
@@ -60,12 +60,21 @@ Additional features for some extensions, features include custom description, op
 * Mangadex
 * NHentai
 * Puruin
-* Tsumino
+* LANraragi
 
 ## Download
 Get the app from our [releases page](https://github.com/jobobby04/tachiyomisy/releases/latest).
 
 If you want to try new features before they get to the stable release, you can download the preview version [here](https://github.com/jobobby04/tachiyomisypreview/releases).
+
+## Translation
+Feel free to translate the project on [Weblate](https://hosted.weblate.org/projects/mihon/tachiyomisy/)
+
+<details><summary>Translation Progress</summary>
+<a href="https://hosted.weblate.org/engage/mihon/">
+<img src="https://hosted.weblate.org/widgets/mihon/-/tachiyomisy/multi-auto.svg" alt="Translation status" />
+</a>
+</details>
 
 ## Issues, Feature Requests and Contributing
 
@@ -73,7 +82,7 @@ Please make sure to read the full guidelines. Your issue may be closed without w
 
 <details><summary>Issues</summary>
 
-1. **Before reporting a new issue, take a look at the [FAQ](https://tachiyomi.org/docs/faq/general), the [changelog](https://github.com/jobobby04/tachiyomisy/releases) and the already opened [issues](https://github.com/jobobby04/tachiyomisy/issues).**
+1. **Before reporting a new issue, take a look at the [FAQ](https://mihon.app/docs/faq/general), the [changelog](https://github.com/jobobby04/tachiyomisy/releases) and the already opened [issues](https://github.com/jobobby04/tachiyomisy/issues).**
 2. If you are unsure, ask here: [![Discord](https://img.shields.io/discord/1195734228319617024.svg)](https://discord.gg/mihon)
 
 </details>
@@ -88,9 +97,7 @@ Please make sure to read the full guidelines. Your issue may be closed without w
 * If it could be device-dependent, try reproducing on another device (if possible)
 * Don't group unrelated requests into one issue
 
-DO: https://github.com/tachiyomiorg/tachiyomi/issues/24 https://github.com/tachiyomiorg/tachiyomi/issues/71
-
-DON'T: https://github.com/tachiyomiorg/tachiyomi/issues/75
+Use the [issue forms](https://github.com/jobobby04/TachiyomiSY/issues/new/choose) to submit a bug.
 
 </details>
 

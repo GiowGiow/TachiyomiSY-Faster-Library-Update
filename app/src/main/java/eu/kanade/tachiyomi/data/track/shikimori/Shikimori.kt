@@ -1,15 +1,13 @@
 package eu.kanade.tachiyomi.data.track.shikimori
 
-import android.graphics.Color
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.DeletableTracker
+import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.toImmutableList
-import kotlinx.serialization.encodeToString
+import eu.kanade.tachiyomi.data.track.shikimori.dto.SMOAuth
 import kotlinx.serialization.json.Json
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
@@ -27,7 +25,6 @@ class Shikimori(id: Long) : BaseTracker(id, "Shikimori"), DeletableTracker {
 
         private val SCORE_LIST = IntRange(0, 10)
             .map(Int::toString)
-            .toImmutableList()
     }
 
     private val json: Json by injectLazy()
@@ -36,7 +33,7 @@ class Shikimori(id: Long) : BaseTracker(id, "Shikimori"), DeletableTracker {
 
     private val api by lazy { ShikimoriApi(id, client, interceptor) }
 
-    override fun getScoreList(): ImmutableList<String> = SCORE_LIST
+    override fun getScoreList(): List<String> = SCORE_LIST
 
     override fun displayScore(track: DomainTrack): String {
         return track.score.toInt().toString()
@@ -65,7 +62,7 @@ class Shikimori(id: Long) : BaseTracker(id, "Shikimori"), DeletableTracker {
     }
 
     override suspend fun bind(track: Track, hasReadChapters: Boolean): Track {
-        val remoteTrack = api.findLibManga(track, getUsername())
+        val remoteTrack = api.findLibManga(track)
         return if (remoteTrack != null) {
             track.copyPersonalFrom(remoteTrack)
             track.library_id = remoteTrack.library_id
@@ -89,17 +86,19 @@ class Shikimori(id: Long) : BaseTracker(id, "Shikimori"), DeletableTracker {
     }
 
     override suspend fun refresh(track: Track): Track {
-        api.findLibManga(track, getUsername())?.let { remoteTrack ->
+        api.findLibManga(track, isRefresh = true)?.let { remoteTrack ->
             track.library_id = remoteTrack.library_id
             track.copyPersonalFrom(remoteTrack)
             track.total_chapters = remoteTrack.total_chapters
-        }
+        } ?: throw Exception("Could not find manga")
         return track
     }
 
-    override fun getLogo() = R.drawable.ic_tracker_shikimori
+    override suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata? {
+        return api.getMangaMetadata(track)
+    }
 
-    override fun getLogoColor() = Color.rgb(40, 40, 40)
+    override fun getLogo() = R.drawable.brand_shikimori
 
     override fun getStatusList(): List<Long> {
         return listOf(READING, COMPLETED, ON_HOLD, DROPPED, PLAN_TO_READ, REREADING)
@@ -128,19 +127,20 @@ class Shikimori(id: Long) : BaseTracker(id, "Shikimori"), DeletableTracker {
             val oauth = api.accessToken(code)
             interceptor.newAuth(oauth)
             val user = api.getCurrentUser()
-            saveCredentials(user.toString(), oauth.access_token)
+            saveDisplayUsername(user.nickname)
+            saveCredentials(user.id, oauth.accessToken)
         } catch (e: Throwable) {
             logout()
         }
     }
 
-    fun saveToken(oauth: OAuth?) {
+    fun saveToken(oauth: SMOAuth?) {
         trackPreferences.trackToken(this).set(json.encodeToString(oauth))
     }
 
-    fun restoreToken(): OAuth? {
+    fun restoreToken(): SMOAuth? {
         return try {
-            json.decodeFromString<OAuth>(trackPreferences.trackToken(this).get())
+            json.decodeFromString<SMOAuth>(trackPreferences.trackToken(this).get())
         } catch (e: Exception) {
             null
         }

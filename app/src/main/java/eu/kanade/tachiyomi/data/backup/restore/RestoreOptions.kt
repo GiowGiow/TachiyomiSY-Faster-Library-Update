@@ -1,13 +1,14 @@
 package eu.kanade.tachiyomi.data.backup.restore
 
 import dev.icerock.moko.resources.StringResource
-import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
 
 data class RestoreOptions(
-    val library: Boolean = true,
+    val libraryEntries: Boolean = true,
+    val categories: Boolean = true,
     val appSettings: Boolean = true,
+    val extensionStores: Boolean = true,
     val sourceSettings: Boolean = true,
     // SY -->
     val savedSearches: Boolean = true,
@@ -15,27 +16,45 @@ data class RestoreOptions(
 ) {
 
     fun asBooleanArray() = booleanArrayOf(
-        library,
+        libraryEntries,
+        categories,
         appSettings,
+        extensionStores,
         sourceSettings,
         // SY -->
-        savedSearches
+        savedSearches,
         // SY <--
     )
 
-    fun anyEnabled() = library || appSettings || sourceSettings /* SY --> */ || savedSearches /* SY <-- */
+    fun canRestore() =
+        libraryEntries ||
+            categories ||
+            appSettings ||
+            extensionStores ||
+            sourceSettings /* SY --> */ ||
+            savedSearches /* SY <-- */
 
     companion object {
-        val options = persistentListOf(
+        val options = listOf(
             Entry(
                 label = MR.strings.label_library,
-                getter = RestoreOptions::library,
-                setter = { options, enabled -> options.copy(library = enabled) },
+                getter = RestoreOptions::libraryEntries,
+                setter = { options, enabled -> options.copy(libraryEntries = enabled) },
+            ),
+            Entry(
+                label = MR.strings.categories,
+                getter = RestoreOptions::categories,
+                setter = { options, enabled -> options.copy(categories = enabled) },
             ),
             Entry(
                 label = MR.strings.app_settings,
                 getter = RestoreOptions::appSettings,
                 setter = { options, enabled -> options.copy(appSettings = enabled) },
+            ),
+            Entry(
+                label = MR.strings.extensionStores,
+                getter = RestoreOptions::extensionStores,
+                setter = { options, enabled -> options.copy(extensionStores = enabled) },
             ),
             Entry(
                 label = MR.strings.source_settings,
@@ -52,11 +71,13 @@ data class RestoreOptions(
         )
 
         fun fromBooleanArray(array: BooleanArray) = RestoreOptions(
-            library = array[0],
-            appSettings = array[1],
-            sourceSettings = array[2],
+            libraryEntries = array[0],
+            categories = array[1],
+            appSettings = array[2],
+            extensionStores = array[3],
+            sourceSettings = array[4],
             // SY -->
-            savedSearches = array[3]
+            savedSearches = array[5],
             // SY <--
         )
     }

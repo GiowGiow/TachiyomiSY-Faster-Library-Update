@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
@@ -33,7 +34,6 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
-import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
@@ -42,11 +42,11 @@ import tachiyomi.presentation.core.util.runOnEnterKeyPressed
 @Composable
 fun AutoCompleteItem(
     name: String,
-    state: ImmutableList<String>,
+    state: List<String>,
     hint: String,
-    values: ImmutableList<String>,
-    skipAutoFillTags: ImmutableList<String>,
-    validPrefixes: ImmutableList<String>,
+    values: List<String>,
+    skipAutoFillTags: List<String>,
+    validPrefixes: List<String>,
     onChange: (List<String>) -> Unit,
 ) {
     Column(
@@ -115,7 +115,7 @@ fun AutoCompleteItem(
 fun AutoCompleteTextField(
     label: String? = null,
     placeholder: String? = null,
-    values: ImmutableList<String>,
+    values: List<String>,
     onValueFilter: ((String) -> (Pair<(String) -> Boolean, String?>)),
     onSubmit: (String) -> Boolean,
 ) {
@@ -154,7 +154,7 @@ fun AutoCompleteTextField(
                 null
             },
             modifier = Modifier
-                .menuAnchor()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable)
                 .fillMaxWidth()
                 .runOnEnterKeyPressed { submit() },
             singleLine = true,
@@ -189,7 +189,7 @@ fun AutoCompleteTextField(
         if (value.text.length > 2 && filteredValues.isNotEmpty()) {
             ExposedDropdownMenu(
                 modifier = Modifier
-                    .exposedDropdownSize(matchTextFieldWidth = true),
+                    .exposedDropdownSize(matchAnchorWidth = true),
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
             ) {

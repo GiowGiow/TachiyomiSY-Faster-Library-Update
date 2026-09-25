@@ -35,8 +35,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -48,13 +50,12 @@ import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.WarningBanner
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.presentation.more.settings.widget.TrailingWidgetBuffer
+import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.ui.browse.extension.details.ExtensionDetailsScreenModel
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.system.copyToClipboard
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
@@ -73,16 +74,17 @@ fun ExtensionDetailsScreen(
     onClickClearCookies: () -> Unit,
     onClickUninstall: () -> Unit,
     onClickSource: (sourceId: Long) -> Unit,
+    onClickIncognito: (Boolean) -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
     val url = remember(state.extension) {
         val regex = """https://raw.githubusercontent.com/(.+?)/(.+?)/.+""".toRegex()
-        regex.find(state.extension?.repoUrl.orEmpty())
+        regex.find(state.extension?.store?.indexUrl.orEmpty())
             ?.let {
                 val (user, repo) = it.destructured
                 "https://github.com/$user/$repo"
             }
-            ?: state.extension?.repoUrl
+            ?: state.extension?.store?.indexUrl
     }
 
     Scaffold(
@@ -92,37 +94,35 @@ fun ExtensionDetailsScreen(
                 navigateUp = navigateUp,
                 actions = {
                     AppBarActions(
-                        actions = persistentListOf<AppBar.AppBarAction>().builder()
-                            .apply {
-                                if (url != null) {
-                                    add(
-                                        AppBar.Action(
-                                            title = stringResource(MR.strings.action_open_repo),
-                                            icon = Icons.AutoMirrored.Outlined.Launch,
-                                            onClick = {
-                                                uriHandler.openUri(url)
-                                            },
-                                        ),
-                                    )
-                                }
-                                addAll(
-                                    listOf(
-                                        AppBar.OverflowAction(
-                                            title = stringResource(MR.strings.action_enable_all),
-                                            onClick = onClickEnableAll,
-                                        ),
-                                        AppBar.OverflowAction(
-                                            title = stringResource(MR.strings.action_disable_all),
-                                            onClick = onClickDisableAll,
-                                        ),
-                                        AppBar.OverflowAction(
-                                            title = stringResource(MR.strings.pref_clear_cookies),
-                                            onClick = onClickClearCookies,
-                                        ),
+                        actions = buildList {
+                            if (url != null) {
+                                add(
+                                    AppBar.Action(
+                                        title = stringResource(MR.strings.action_open_repo),
+                                        icon = Icons.AutoMirrored.Outlined.Launch,
+                                        onClick = {
+                                            uriHandler.openUri(url)
+                                        },
                                     ),
                                 )
                             }
-                            .build(),
+                            addAll(
+                                listOf(
+                                    AppBar.OverflowAction(
+                                        title = stringResource(MR.strings.action_enable_all),
+                                        onClick = onClickEnableAll,
+                                    ),
+                                    AppBar.OverflowAction(
+                                        title = stringResource(MR.strings.action_disable_all),
+                                        onClick = onClickDisableAll,
+                                    ),
+                                    AppBar.OverflowAction(
+                                        title = stringResource(MR.strings.pref_clear_cookies),
+                                        onClick = onClickClearCookies,
+                                    ),
+                                ),
+                            )
+                        },
                     )
                 },
                 scrollBehavior = scrollBehavior,
@@ -141,9 +141,11 @@ fun ExtensionDetailsScreen(
             contentPadding = paddingValues,
             extension = state.extension,
             sources = state.sources,
+            incognitoMode = state.isIncognito,
             onClickSourcePreferences = onClickSourcePreferences,
             onClickUninstall = onClickUninstall,
             onClickSource = onClickSource,
+            onClickIncognito = onClickIncognito,
         )
     }
 }
@@ -152,10 +154,12 @@ fun ExtensionDetailsScreen(
 private fun ExtensionDetails(
     contentPadding: PaddingValues,
     extension: Extension.Installed,
-    sources: ImmutableList<ExtensionSourceItem>,
+    sources: List<ExtensionSourceItem>,
+    incognitoMode: Boolean,
     onClickSourcePreferences: (sourceId: Long) -> Unit,
     onClickUninstall: () -> Unit,
     onClickSource: (sourceId: Long) -> Unit,
+    onClickIncognito: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
     var showNsfwWarning by remember { mutableStateOf(false) }
@@ -179,6 +183,7 @@ private fun ExtensionDetails(
         item {
             DetailsHeader(
                 extension = extension,
+                extIncognitoMode = incognitoMode,
                 onClickUninstall = onClickUninstall,
                 onClickAppInfo = {
                     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -190,6 +195,7 @@ private fun ExtensionDetails(
                 onClickAgeRating = {
                     showNsfwWarning = true
                 },
+                onExtIncognitoChange = onClickIncognito,
             )
         }
 
@@ -198,7 +204,7 @@ private fun ExtensionDetails(
             key = { it.source.id },
         ) { source ->
             SourceSwitchPreference(
-                modifier = Modifier.animateItemPlacement(),
+                modifier = Modifier.animateItem(),
                 source = source,
                 onClickSourcePreferences = onClickSourcePreferences,
                 onClickSource = onClickSource,
@@ -217,9 +223,11 @@ private fun ExtensionDetails(
 @Composable
 private fun DetailsHeader(
     extension: Extension,
+    extIncognitoMode: Boolean,
     onClickAgeRating: () -> Unit,
     onClickUninstall: () -> Unit,
     onClickAppInfo: (() -> Unit)?,
+    onExtIncognitoChange: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
 
@@ -227,9 +235,8 @@ private fun DetailsHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = MaterialTheme.padding.medium)
                 .padding(
-                    start = MaterialTheme.padding.medium,
-                    end = MaterialTheme.padding.medium,
                     top = MaterialTheme.padding.medium,
                     bottom = MaterialTheme.padding.small,
                 )
@@ -240,19 +247,22 @@ private fun DetailsHeader(
                             Extension name: ${extension.name} (lang: ${extension.lang}; package: ${extension.pkgName})
                             Extension version: ${extension.versionName} (lib: ${extension.libVersion}; version code: ${extension.versionCode})
                             NSFW: ${extension.isNsfw}
-                            """.trimIndent()
+                            """.trimIndent(),
                         )
 
                         if (extension is Extension.Installed) {
                             append("\n\n")
-                            append(
+                            appendLine(
                                 """
                                 Update available: ${extension.hasUpdate}
-                                Obsolete: ${extension.isObsolete}
+                                Orphaned: ${extension.isObsolete}
                                 Shared: ${extension.isShared}
-                                Repository: ${extension.repoUrl} 
-                                """.trimIndent()
+                                """.trimIndent(),
                             )
+                            val store = extension.store
+                            if (store != null) {
+                                append("Repository: ${store.indexUrl}")
+                            }
                         }
                     }
                     context.copyToClipboard("Extension Debug information", extDebugInfo)
@@ -321,12 +331,9 @@ private fun DetailsHeader(
         }
 
         Row(
-            modifier = Modifier.padding(
-                start = MaterialTheme.padding.medium,
-                end = MaterialTheme.padding.medium,
-                top = MaterialTheme.padding.small,
-                bottom = MaterialTheme.padding.medium,
-            ),
+            modifier = Modifier
+                .padding(horizontal = MaterialTheme.padding.medium)
+                .padding(top = MaterialTheme.padding.small),
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.medium),
         ) {
             OutlinedButton(
@@ -348,6 +355,24 @@ private fun DetailsHeader(
                 }
             }
         }
+
+        TextPreferenceWidget(
+            modifier = Modifier.padding(horizontal = MaterialTheme.padding.small),
+            title = stringResource(MR.strings.pref_incognito_mode),
+            subtitle = stringResource(MR.strings.pref_incognito_mode_extension_summary),
+            icon = ImageVector.vectorResource(R.drawable.ic_glasses_24dp),
+            widget = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Switch(
+                        checked = extIncognitoMode,
+                        onCheckedChange = onExtIncognitoChange,
+                        modifier = Modifier.padding(start = TrailingWidgetBuffer),
+                    )
+                }
+            },
+        )
 
         HorizontalDivider()
     }

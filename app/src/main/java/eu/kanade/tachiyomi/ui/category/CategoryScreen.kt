@@ -13,10 +13,8 @@ import eu.kanade.presentation.category.CategoryScreen
 import eu.kanade.presentation.category.components.CategoryCreateDialog
 import eu.kanade.presentation.category.components.CategoryDeleteDialog
 import eu.kanade.presentation.category.components.CategoryRenameDialog
-import eu.kanade.presentation.category.components.CategorySortAlphabeticallyDialog
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.util.system.toast
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.collectLatest
 import tachiyomi.presentation.core.screens.LoadingScreen
 
@@ -40,11 +38,9 @@ class CategoryScreen : Screen() {
         CategoryScreen(
             state = successState,
             onClickCreate = { screenModel.showDialog(CategoryDialog.Create) },
-            onClickSortAlphabetically = { screenModel.showDialog(CategoryDialog.SortAlphabetically) },
             onClickRename = { screenModel.showDialog(CategoryDialog.Rename(it)) },
             onClickDelete = { screenModel.showDialog(CategoryDialog.Delete(it)) },
-            onClickMoveUp = screenModel::moveUp,
-            onClickMoveDown = screenModel::moveDown,
+            onChangeOrder = screenModel::changeOrder,
             navigateUp = navigator::pop,
         )
 
@@ -54,14 +50,14 @@ class CategoryScreen : Screen() {
                 CategoryCreateDialog(
                     onDismissRequest = screenModel::dismissDialog,
                     onCreate = screenModel::createCategory,
-                    categories = successState.categories.fastMap { it.name }.toImmutableList(),
+                    categories = successState.categories.fastMap { it.name },
                 )
             }
             is CategoryDialog.Rename -> {
                 CategoryRenameDialog(
                     onDismissRequest = screenModel::dismissDialog,
                     onRename = { screenModel.renameCategory(dialog.category, it) },
-                    categories = successState.categories.fastMap { it.name }.toImmutableList(),
+                    categories = successState.categories.fastMap { it.name },
                     category = dialog.category.name,
                 )
             }
@@ -70,12 +66,6 @@ class CategoryScreen : Screen() {
                     onDismissRequest = screenModel::dismissDialog,
                     onDelete = { screenModel.deleteCategory(dialog.category.id) },
                     category = dialog.category.name,
-                )
-            }
-            is CategoryDialog.SortAlphabetically -> {
-                CategorySortAlphabeticallyDialog(
-                    onDismissRequest = screenModel::dismissDialog,
-                    onSort = { screenModel.sortAlphabetically() },
                 )
             }
         }

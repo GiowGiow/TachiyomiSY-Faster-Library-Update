@@ -9,12 +9,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import eu.kanade.tachiyomi.ui.category.biometric.TimeRangeItem
-import kotlinx.collections.immutable.ImmutableList
 import tachiyomi.presentation.core.components.material.padding
 
 @Composable
 fun BiometricTimesContent(
-    timeRanges: ImmutableList<TimeRangeItem>,
+    timeRanges: List<TimeRangeItem>,
     lazyListState: LazyListState,
     paddingValues: PaddingValues,
     onClickDelete: (TimeRangeItem) -> Unit,
@@ -26,7 +25,7 @@ fun BiometricTimesContent(
     ) {
         items(timeRanges, key = { it.formattedString }) { timeRange ->
             BiometricTimesListItem(
-                modifier = Modifier.animateItemPlacement(),
+                modifier = Modifier.animateItem(),
                 timeRange = timeRange,
                 onDelete = { onClickDelete(timeRange) },
             )

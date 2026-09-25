@@ -32,7 +32,6 @@ import eu.kanade.presentation.util.ioCoroutineScope
 import eu.kanade.tachiyomi.util.lang.toDateTimestampString
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.workManager
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -49,7 +48,7 @@ import java.time.ZoneId
 class WorkerInfoScreen : Screen() {
 
     companion object {
-        const val title = "Worker info"
+        const val TITLE = "Worker info"
     }
 
     @Composable
@@ -65,16 +64,16 @@ class WorkerInfoScreen : Screen() {
         Scaffold(
             topBar = {
                 AppBar(
-                    title = title,
+                    title = TITLE,
                     navigateUp = navigator::pop,
                     actions = {
                         AppBarActions(
-                            persistentListOf(
+                            listOf(
                                 AppBar.Action(
                                     title = stringResource(MR.strings.action_copy_to_clipboard),
                                     icon = Icons.Default.ContentCopy,
                                     onClick = {
-                                        context.copyToClipboard(title, enqueued + finished + running)
+                                        context.copyToClipboard(TITLE, enqueued + finished + running)
                                     },
                                 ),
                             ),
@@ -156,10 +155,10 @@ class WorkerInfoScreen : Screen() {
                         )
                             .toDateTimestampString(
                                 UiPreferences.dateFormat(
-                                    Injekt.get<UiPreferences>().dateFormat().get(),
+                                    Injekt.get<UiPreferences>().dateFormat.get(),
                                 ),
                             )
-                        appendLine("Next scheduled run: $timestamp",)
+                        appendLine("Next scheduled run: $timestamp")
                         appendLine("Attempt #${workInfo.runAttemptCount + 1}")
                     }
                     appendLine()
