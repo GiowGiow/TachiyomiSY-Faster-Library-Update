@@ -17,6 +17,7 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import kotlin.time.Duration.Companion.milliseconds
 
 data class Download(
     val source: HttpSource,
@@ -29,7 +30,7 @@ data class Download(
         get() = pages?.sumOf(Page::progress) ?: 0
 
     val downloadedImages: Int
-        get() = pages?.count { it.status == Page.State.READY } ?: 0
+        get() = pages?.count { it.status == Page.State.Ready } ?: 0
 
     @Transient
     private val _statusFlow = MutableStateFlow(State.NOT_DOWNLOADED)
@@ -47,7 +48,7 @@ data class Download(
         if (pages == null) {
             emit(0)
             while (pages == null) {
-                delay(50)
+                delay(50.milliseconds)
             }
         }
 
@@ -55,7 +56,7 @@ data class Download(
         emitAll(combine(progressFlows) { it.average().toInt() })
     }
         .distinctUntilChanged()
-        .debounce(50)
+        .debounce(50.milliseconds)
 
     val progress: Int
         get() {

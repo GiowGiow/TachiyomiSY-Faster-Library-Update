@@ -9,27 +9,27 @@ import java.util.UUID
 class SyncPreferences(
     private val preferenceStore: PreferenceStore,
 ) {
-    fun clientHost() = preferenceStore.getString("sync_client_host", "https://sync.tachiyomi.org")
-    fun clientAPIKey() = preferenceStore.getString("sync_client_api_key", "")
-    fun lastSyncTimestamp() = preferenceStore.getLong(Preference.appStateKey("last_sync_timestamp"), 0L)
+    val clientHost: Preference<String> = preferenceStore.getString("sync_client_host", "https://sync.tachiyomi.org")
+    val clientAPIKey: Preference<String> = preferenceStore.getString("sync_client_api_key", "")
+    val lastSyncTimestamp: Preference<Long> = preferenceStore.getLong(Preference.appStateKey("last_sync_timestamp"), 0L)
 
-    fun lastSyncEtag() =  preferenceStore.getString("sync_etag", "")
+    val lastSyncEtag: Preference<String> = preferenceStore.getString("sync_etag", "")
 
-    fun syncInterval() = preferenceStore.getInt("sync_interval", 0)
-    fun syncService() = preferenceStore.getInt("sync_service", 0)
+    val syncInterval: Preference<Int> = preferenceStore.getInt("sync_interval", 0)
+    val syncService: Preference<Int> = preferenceStore.getInt("sync_service", 0)
 
-    fun googleDriveAccessToken() = preferenceStore.getString(
+    val googleDriveAccessToken: Preference<String> = preferenceStore.getString(
         Preference.appStateKey("google_drive_access_token"),
         "",
     )
 
-    fun googleDriveRefreshToken() = preferenceStore.getString(
+    val googleDriveRefreshToken: Preference<String> = preferenceStore.getString(
         Preference.appStateKey("google_drive_refresh_token"),
         "",
     )
 
     fun uniqueDeviceID(): String {
-        val uniqueIDPreference = preferenceStore.getString("unique_device_id", "")
+        val uniqueIDPreference = preferenceStore.getString(Preference.appStateKey("unique_device_id"), "")
 
         // Retrieve the current value of the preference
         var uniqueID = uniqueIDPreference.get()
@@ -42,7 +42,7 @@ class SyncPreferences(
     }
 
     fun isSyncEnabled(): Boolean {
-        return syncService().get() != 0
+        return syncService.get() != 0
     }
 
     fun getSyncSettings(): SyncSettings {
@@ -53,12 +53,14 @@ class SyncPreferences(
             tracking = preferenceStore.getBoolean("tracking", true).get(),
             history = preferenceStore.getBoolean("history", true).get(),
             appSettings = preferenceStore.getBoolean("appSettings", true).get(),
+            extensionStores = preferenceStore.getBoolean("extensionRepoSettings", true).get(),
             sourceSettings = preferenceStore.getBoolean("sourceSettings", true).get(),
             privateSettings = preferenceStore.getBoolean("privateSettings", true).get(),
 
             // SY -->
             customInfo = preferenceStore.getBoolean("customInfo", true).get(),
-            readEntries = preferenceStore.getBoolean("readEntries", true).get()
+            readEntries = preferenceStore.getBoolean("readEntries", true).get(),
+            savedSearches = preferenceStore.getBoolean("savedSearches", true).get(),
             // SY <--
         )
     }
@@ -70,12 +72,14 @@ class SyncPreferences(
         preferenceStore.getBoolean("tracking", true).set(syncSettings.tracking)
         preferenceStore.getBoolean("history", true).set(syncSettings.history)
         preferenceStore.getBoolean("appSettings", true).set(syncSettings.appSettings)
+        preferenceStore.getBoolean("extensionRepoSettings", true).set(syncSettings.extensionStores)
         preferenceStore.getBoolean("sourceSettings", true).set(syncSettings.sourceSettings)
         preferenceStore.getBoolean("privateSettings", true).set(syncSettings.privateSettings)
 
         // SY -->
         preferenceStore.getBoolean("customInfo", true).set(syncSettings.customInfo)
         preferenceStore.getBoolean("readEntries", true).set(syncSettings.readEntries)
+        preferenceStore.getBoolean("savedSearches", true).set(syncSettings.savedSearches)
         // SY <--
     }
 

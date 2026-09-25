@@ -1,48 +1,44 @@
+import mihon.gradle.tasks.GenerateLocalesConfigTask
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+
 plugins {
-    id("mihon.library")
-    id("dev.icerock.mobile.multiplatform-resources")
-    kotlin("multiplatform")
+    alias(mihonx.plugins.kotlin.multiplatform)
+    alias(mihonx.plugins.spotless)
+
+    alias(libs.plugins.moko.resources)
     id("com.github.ben-manes.versions")
 }
 
 kotlin {
-    androidTarget()
+    android {
+        namespace = "tachiyomi.i18n.sy"
 
-    applyDefaultHierarchyTemplate()
+        // TODO(antsy): Remove when https://youtrack.jetbrains.com/issue/KT-83319 is resolved
+        withHostTest { }
+    }
 
-    sourceSets {
-        val commonMain by getting {
-            dependencies {
-                api(libs.moko.core)
-            }
-        }
-        androidMain {
-            dependsOn(commonMain) // https://github.com/icerockdev/moko-resources/issues/562
-        }
+    @OptIn(ExperimentalKotlinGradlePluginApi::class)
+    dependencies {
+        api(libs.moko.resources)
+    }
+
+    @OptIn(ExperimentalKotlinGradlePluginApi::class)
+    compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
     }
 }
 
-android {
-    namespace = "tachiyomi.i18n.sy"
+androidComponents {
+    onVariants { variant ->
+        val resSource = variant.sources.res ?: return@onVariants
 
-    sourceSets {
-        named("main") {
-            res.srcDir("src/commonMain/resources")
-        }
-    }
-
-    lint {
-        disable.addAll(listOf("MissingTranslation", "ExtraTranslation"))
+        val variantName = variant.name.replaceFirstChar { it.uppercase() }
+        val task = tasks.register<GenerateLocalesConfigTask>("generate${variantName}LocalesConfig")
+        resSource.addGeneratedSourceDirectory(task) { it.outputDir }
     }
 }
 
 multiplatformResources {
-    multiplatformResourcesClassName = "SYMR"
-    multiplatformResourcesPackage = "tachiyomi.i18n.sy"
-}
-
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-    kotlinOptions.freeCompilerArgs += listOf(
-        "-Xexpect-actual-classes",
-    )
+    resourcesClassName.set("SYMR")
+    resourcesPackage.set("tachiyomi.i18n.sy")
 }

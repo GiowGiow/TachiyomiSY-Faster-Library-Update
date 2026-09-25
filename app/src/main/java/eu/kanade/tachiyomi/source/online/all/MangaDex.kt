@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
 import eu.kanade.domain.track.service.TrackPreferences
+import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.mdlist.MdList
@@ -31,6 +32,7 @@ import exh.md.handlers.FollowsHandler
 import exh.md.handlers.MangaHandler
 import exh.md.handlers.MangaHotHandler
 import exh.md.handlers.MangaPlusHandler
+import exh.md.handlers.NamicomiHandler
 import exh.md.handlers.PageHandler
 import exh.md.handlers.SimilarHandler
 import exh.md.network.MangaDexLoginHelper
@@ -43,6 +45,7 @@ import exh.md.utils.MdLang
 import exh.md.utils.MdUtil
 import exh.metadata.metadata.MangaDexSearchMetadata
 import exh.source.DelegatedHttpSource
+import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Response
 import rx.Observable
@@ -78,6 +81,11 @@ class MangaDex(delegate: HttpSource, val context: Context) :
 
     private val loginHelper = MangaDexLoginHelper(network.client, trackPreferences, mdList, mdList.interceptor)
 
+    override val headers: Headers = delegate.headers.newBuilder()
+        .removeAll("User-Agent")
+        .add("User-Agent", "TachiyomiSY v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
+        .build()
+
     override val baseHttpClient: OkHttpClient = delegate.client.newBuilder()
         .addInterceptor(mdList.interceptor)
         .build()
@@ -86,9 +94,14 @@ class MangaDex(delegate: HttpSource, val context: Context) :
     private fun usePort443Only() = sourcePreferences.getBoolean(getStandardHttpsPreferenceKey(mdLang.lang), false)
     private fun blockedGroups() = sourcePreferences.getString(getBlockedGroupsPrefKey(mdLang.lang), "").orEmpty()
     private fun blockedUploaders() = sourcePreferences.getString(getBlockedUploaderPrefKey(mdLang.lang), "").orEmpty()
+    private fun coverQuality() = sourcePreferences.getString(getCoverQualityPrefKey(mdLang.lang), "").orEmpty()
+    private fun tryUsingFirstVolumeCover() = sourcePreferences.getBoolean(getTryUsingFirstVolumeCoverKey(mdLang.lang), false)
+    private fun altTitlesInDesc() = sourcePreferences.getBoolean(getAltTitlesInDescKey(mdLang.lang), false)
+    private fun finalChapterInDesc() = sourcePreferences.getBoolean(getFinalChapterInDescPrefKey(mdLang.lang), false)
+    private fun preferExtensionLangTitle() = sourcePreferences.getBoolean(getPreferExtensionLangTitlePrefKey(mdLang.extLang), true)
 
     private val mangadexService by lazy {
-        MangaDexService(client)
+        MangaDexService(client, headers)
     }
     private val mangadexAuthService by lazy {
         MangaDexAuthService(baseHttpClient, headers)
@@ -103,7 +116,7 @@ class MangaDex(delegate: HttpSource, val context: Context) :
         FollowsHandler(mdLang.lang, mangadexAuthService)
     }
     private val mangaHandler by lazy {
-        MangaHandler(mdLang.lang, mangadexService, apiMangaParser, followsHandler)
+        MangaHandler(mdLang.lang, mangadexService, apiMangaParser)
     }
     private val similarHandler by lazy {
         SimilarHandler(mdLang.lang, mangadexService, similarService)
@@ -123,15 +136,18 @@ class MangaDex(delegate: HttpSource, val context: Context) :
     private val mangaHotHandler by lazy {
         MangaHotHandler(network.client, network.defaultUserAgentProvider())
     }
+    private val namicomiHandler by lazy {
+        NamicomiHandler(network.client, network.defaultUserAgentProvider())
+    }
     private val pageHandler by lazy {
         PageHandler(
-            headers,
             mangadexService,
             mangaPlusHandler,
             comikeyHandler,
             bilibiliHandler,
             azukHandler,
             mangaHotHandler,
+            namicomiHandler,
             trackPreferences,
             mdList,
         )
@@ -184,20 +200,20 @@ class MangaDex(delegate: HttpSource, val context: Context) :
 
     @Deprecated("Use the 1.x API instead", replaceWith = ReplaceWith("getMangaDetails"))
     override fun fetchMangaDetails(manga: SManga): Observable<SManga> {
-        return mangaHandler.fetchMangaDetailsObservable(manga, id)
-    }
-
-    override suspend fun getMangaDetails(manga: SManga): SManga {
-        return mangaHandler.getMangaDetails(manga, id)
+        return mangaHandler.fetchMangaDetailsObservable(
+            manga,
+            id,
+            coverQuality(),
+            tryUsingFirstVolumeCover(),
+            altTitlesInDesc(),
+            finalChapterInDesc(),
+            preferExtensionLangTitle(),
+        )
     }
 
     @Deprecated("Use the 1.x API instead", replaceWith = ReplaceWith("getChapterList"))
     override fun fetchChapterList(manga: SManga): Observable<List<SChapter>> {
         return mangaHandler.fetchChapterListObservable(manga, blockedGroups(), blockedUploaders())
-    }
-
-    override suspend fun getChapterList(manga: SManga): List<SChapter> {
-        return mangaHandler.getChapterList(manga, blockedGroups(), blockedUploaders())
     }
 
     @Deprecated("Use the 1.x API instead", replaceWith = ReplaceWith("getPageList"))
@@ -209,9 +225,9 @@ class MangaDex(delegate: HttpSource, val context: Context) :
         return pageHandler.fetchPageList(chapter, usePort443Only(), dataSaver(), delegate)
     }
 
-    override suspend fun getImage(page: Page): Response {
-        val call = pageHandler.getImageCall(page)
-        return call?.awaitSuccess() ?: super.getImage(page)
+    override suspend fun getImage(page: Page, existingSize: Long): Response {
+        val call = pageHandler.getImageCall(page, existingSize)
+        return call?.awaitSuccess() ?: super.getImage(page, existingSize)
     }
 
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getImageUrl"))
@@ -233,8 +249,21 @@ class MangaDex(delegate: HttpSource, val context: Context) :
 
     override fun newMetaInstance() = MangaDexSearchMetadata()
 
-    override suspend fun parseIntoMetadata(metadata: MangaDexSearchMetadata, input: Triple<MangaDto, List<String>, StatisticsMangaDto>) {
-        apiMangaParser.parseIntoMetadata(metadata, input.first, input.second, input.third)
+    override suspend fun parseIntoMetadata(
+        metadata: MangaDexSearchMetadata,
+        input: Triple<MangaDto, List<String>, StatisticsMangaDto>,
+    ) {
+        apiMangaParser.parseIntoMetadata(
+            metadata,
+            input.first,
+            input.second,
+            input.third,
+            null,
+            coverQuality(),
+            altTitlesInDesc(),
+            finalChapterInDesc(),
+            preferExtensionLangTitle(),
+        )
     }
 
     // LoginSource methods
@@ -288,10 +317,6 @@ class MangaDex(delegate: HttpSource, val context: Context) :
         return followsHandler.updateRating(track)
     }
 
-    suspend fun getTrackingAndMangaInfo(track: Track): Pair<Track, MangaDexSearchMetadata?> {
-        return mangaHandler.getTrackingInfo(track)
-    }
-
     // RandomMangaSource method
     override suspend fun fetchRandomMangaUrl(): String {
         return mangaHandler.fetchRandomMangaId()
@@ -305,29 +330,62 @@ class MangaDex(delegate: HttpSource, val context: Context) :
         return similarHandler.getRelated(manga)
     }
 
+    suspend fun getMangaMetadata(track: Track): SManga {
+        return mangaHandler.getMangaMetadata(
+            track,
+            id,
+            coverQuality(),
+            tryUsingFirstVolumeCover(),
+            altTitlesInDesc(),
+            finalChapterInDesc(),
+            preferExtensionLangTitle(),
+        )
+    }
+
     companion object {
         private const val dataSaverPref = "dataSaverV5"
-
         fun getDataSaverPreferenceKey(dexLang: String): String {
             return "${dataSaverPref}_$dexLang"
         }
 
         private const val standardHttpsPortPref = "usePort443"
-
         fun getStandardHttpsPreferenceKey(dexLang: String): String {
             return "${standardHttpsPortPref}_$dexLang"
         }
 
         private const val blockedGroupsPref = "blockedGroups"
-
         fun getBlockedGroupsPrefKey(dexLang: String): String {
             return "${blockedGroupsPref}_$dexLang"
         }
 
         private const val blockedUploaderPref = "blockedUploader"
-
         fun getBlockedUploaderPrefKey(dexLang: String): String {
             return "${blockedUploaderPref}_$dexLang"
+        }
+
+        private const val coverQualityPref = "thumbnailQuality"
+        fun getCoverQualityPrefKey(dexLang: String): String {
+            return "${coverQualityPref}_$dexLang"
+        }
+
+        private const val tryUsingFirstVolumeCoverPref = "tryUsingFirstVolumeCover"
+        fun getTryUsingFirstVolumeCoverKey(dexLang: String): String {
+            return "${tryUsingFirstVolumeCoverPref}_$dexLang"
+        }
+
+        private const val altTitlesInDescPref = "altTitlesInDesc"
+        fun getAltTitlesInDescKey(dexLang: String): String {
+            return "${altTitlesInDescPref}_$dexLang"
+        }
+
+        private const val finalChapterInDescPref = "finalChapterInDesc"
+        fun getFinalChapterInDescPrefKey(dexLang: String): String {
+            return "${finalChapterInDescPref}_$dexLang"
+        }
+
+        private const val preferExtensionLangTitlePref = "preferExtensionLangTitle"
+        fun getPreferExtensionLangTitlePrefKey(dexLang: String): String {
+            return "${preferExtensionLangTitlePref}_$dexLang"
         }
     }
 }

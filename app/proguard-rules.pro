@@ -16,6 +16,7 @@
 -keep,allowoptimization class rx.** { public protected *; }
 -keep,allowoptimization class app.cash.quickjs.** { public protected *; }
 -keep,allowoptimization class uy.kohesive.injekt.** { public protected *; }
+-keep,allowoptimization class com.squareup.zstd.** { public protected *; }
 
 # From extensions-lib
 -keep,allowoptimization class eu.kanade.tachiyomi.network.interceptor.RateLimitInterceptorKt { public protected *; }
@@ -27,6 +28,11 @@
 
 # Debug functions
 -keep,allowoptimization class exh.debug.DebugFunctions { public *; }
+
+-keepclassmembers class * implements java.io.Serializable {
+    java.lang.Object writeReplace();
+    java.lang.Object readResolve();
+}
 
 ##---------------Begin: proguard configuration for RxJava 1.x  ----------
 -dontwarn sun.misc.**
@@ -46,6 +52,10 @@
 
 -dontnote rx.internal.util.PlatformDependent
 ##---------------End: proguard configuration for RxJava 1.x  ----------
+
+##---------------Begin: proguard configuration for okhttp  ----------
+-keepclasseswithmembers class okhttp3.MultipartBody$Builder { *; }
+##---------------End: proguard configuration for okhttp  ----------
 
 ##---------------Begin: proguard configuration for kotlinx.serialization  ----------
 -keepattributes *Annotation*, InnerClasses
@@ -122,9 +132,6 @@
 
 # XmlUtil
 -keep public enum nl.adaptivity.xmlutil.EventType { *; }
-
-# Apache Commons Compress
--keep class * extends org.apache.commons.compress.archivers.zip.ZipExtraField { <init>(); }
 
 # Firebase
 -keep class com.google.firebase.installations.** { *; }
@@ -298,3 +305,5 @@
 -dontwarn org.ietf.jgss.GSSManager
 -dontwarn org.ietf.jgss.GSSName
 -dontwarn org.ietf.jgss.Oid
+-dontwarn com.google.re2j.Matcher
+-dontwarn com.google.re2j.Pattern

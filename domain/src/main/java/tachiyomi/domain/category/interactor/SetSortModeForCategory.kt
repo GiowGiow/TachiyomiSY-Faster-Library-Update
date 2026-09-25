@@ -7,6 +7,7 @@ import tachiyomi.domain.library.model.LibraryGroup
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.model.plus
 import tachiyomi.domain.library.service.LibraryPreferences
+import kotlin.random.Random
 
 class SetSortModeForCategory(
     private val preferences: LibraryPreferences,
@@ -15,14 +16,17 @@ class SetSortModeForCategory(
 
     suspend fun await(categoryId: Long?, type: LibrarySort.Type, direction: LibrarySort.Direction) {
         // SY -->
-        if (preferences.groupLibraryBy().get() != LibraryGroup.BY_DEFAULT) {
-            preferences.sortingMode().set(LibrarySort(type, direction))
+        if (preferences.groupLibraryBy.get() != LibraryGroup.BY_DEFAULT) {
+            preferences.sortingMode.set(LibrarySort(type, direction))
             return
         }
         // SY <--
         val category = categoryId?.let { categoryRepository.get(it) }
         val flags = (category?.flags ?: 0) + type + direction
-        if (category != null && preferences.categorizedDisplaySettings().get()) {
+        if (type == LibrarySort.Type.Random) {
+            preferences.randomSortSeed.set(Random.nextInt())
+        }
+        if (category != null && preferences.categorizedDisplaySettings.get()) {
             categoryRepository.updatePartial(
                 CategoryUpdate(
                     id = category.id,
@@ -30,7 +34,7 @@ class SetSortModeForCategory(
                 ),
             )
         } else {
-            preferences.sortingMode().set(LibrarySort(type, direction))
+            preferences.sortingMode.set(LibrarySort(type, direction))
             categoryRepository.updateAllFlags(flags)
         }
     }

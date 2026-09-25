@@ -1,10 +1,12 @@
 package eu.kanade.tachiyomi.source
 
 import android.content.Context
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.all.EHentai
+import eu.kanade.tachiyomi.source.online.all.Lanraragi
 import eu.kanade.tachiyomi.source.online.all.MangaDex
 import eu.kanade.tachiyomi.source.online.all.MergedSource
 import eu.kanade.tachiyomi.source.online.all.NHentai
@@ -19,6 +21,7 @@ import exh.source.EH_SOURCE_ID
 import exh.source.EIGHTMUSES_SOURCE_ID
 import exh.source.EXH_SOURCE_ID
 import exh.source.EnhancedHttpSource
+import exh.source.ExhPreferences
 import exh.source.HBROWSE_SOURCE_ID
 import exh.source.MERGED_SOURCE_ID
 import exh.source.PURURIN_SOURCE_ID
@@ -36,7 +39,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import tachiyomi.domain.UnsortedPreferences
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.repository.StubSourceRepository
 import tachiyomi.domain.source.service.SourceManager
@@ -53,6 +55,9 @@ class AndroidSourceManager(
     private val sourceRepository: StubSourceRepository,
 ) : SourceManager {
 
+    private val _isInitialized = MutableStateFlow(false)
+    override val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
+
     private val downloadManager: DownloadManager by injectLazy()
 
     private val scope = CoroutineScope(Job() + Dispatchers.IO)
@@ -61,35 +66,36 @@ class AndroidSourceManager(
 
     private val stubSourcesMap = ConcurrentHashMap<Long, StubSource>()
 
-    override val catalogueSources: Flow<List<CatalogueSource>> = sourcesMapFlow.map {
-        it.values.filterIsInstance<CatalogueSource>()
-    }
+    override val sources: Flow<List<Source>> = sourcesMapFlow.map { it.values.toList() }
 
     // SY -->
-    private val preferences: UnsortedPreferences by injectLazy()
+    private val exhPreferences: ExhPreferences by injectLazy()
+    private val sourcePreferences: SourcePreferences by injectLazy()
     // SY <--
 
     init {
         scope.launch {
             extensionManager.installedExtensionsFlow
                 // SY -->
-                .combine(preferences.enableExhentai().changes()) { extensions, enableExhentai ->
+                .combine(exhPreferences.enableExhentai.changes()) { extensions, enableExhentai ->
                     extensions to enableExhentai
                 }
                 // SY <--
                 .collectLatest { (extensions, enableExhentai) ->
-                    val mutableMap = ConcurrentHashMap<Long, Source>(
+                    val mutableMap: ConcurrentHashMap<Long, Source> = ConcurrentHashMap<Long, Source>(
                         mapOf(
                             LocalSource.ID to LocalSource(
                                 context,
                                 Injekt.get(),
                                 Injekt.get(),
                                 // SY -->
-                                preferences.allowLocalSourceHiddenFolders()::get,
+                                sourcePreferences.allowLocalSourceHiddenFolders::get,
                                 // SY <--
                             ),
                         ),
-                    ).apply {
+                    )
+
+                    mutableMap.apply {
                         // SY -->
                         put(EH_SOURCE_ID, EHentai(EH_SOURCE_ID, false, context))
                         if (enableExhentai) {
@@ -98,6 +104,7 @@ class AndroidSourceManager(
                         put(MERGED_SOURCE_ID, MergedSource())
                         // SY <--
                     }
+
                     extensions.forEach { extension ->
                         extension.sources.mapNotNull { it.toInternalSource() }.forEach {
                             mutableMap[it.id] = it
@@ -160,7 +167,7 @@ class AndroidSourceManager(
                 "Removing blacklisted source: (id: %s, name: %s, lang: %s)!",
                 id,
                 name,
-                (this as? CatalogueSource)?.lang,
+                lang,
             )
             null
         } else {
@@ -179,9 +186,9 @@ class AndroidSourceManager(
         }
     }
 
-    override fun getOnlineSources() = sourcesMapFlow.value.values.filterIsInstance<HttpSource>()
+    override fun getAll() = sourcesMapFlow.value.values.toList()
 
-    override fun getCatalogueSources() = sourcesMapFlow.value.values.filterIsInstance<CatalogueSource>()
+    override fun getOnlineSources() = sourcesMapFlow.value.values.filterIsInstance<HttpSource>()
 
     override fun getStubSources(): List<StubSource> {
         val onlineSourceIds = getOnlineSources().map { it.id }
@@ -189,17 +196,13 @@ class AndroidSourceManager(
     }
 
     // SY -->
-    private val _isInitialized = MutableStateFlow(false)
-    override val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
-
     override fun getVisibleOnlineSources() = sourcesMapFlow.value.values
         .filterIsInstance<HttpSource>()
         .filter {
             it.id !in BlacklistedSources.HIDDEN_SOURCES
         }
 
-    override fun getVisibleCatalogueSources() = sourcesMapFlow.value.values
-        .filterIsInstance<CatalogueSource>()
+    override fun getVisibleSources() = sourcesMapFlow.value.values
         .filter {
             it.id !in BlacklistedSources.HIDDEN_SOURCES
         }
@@ -273,6 +276,13 @@ class AndroidSourceManager(
                 fillInSourceId,
                 "eu.kanade.tachiyomi.extension.all.nhentai.NHentai",
                 NHentai::class,
+                true,
+            ),
+            DelegatedSource(
+                "LANraragi",
+                fillInSourceId,
+                "eu.kanade.tachiyomi.extension.all.lanraragi.LANraragi",
+                Lanraragi::class,
                 true,
             ),
         ).associateBy { it.originalSourceQualifiedClassName }

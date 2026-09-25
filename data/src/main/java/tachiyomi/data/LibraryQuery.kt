@@ -6,6 +6,8 @@ import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
 import exh.source.MERGED_SOURCE_ID
 import tachiyomi.view.LibraryView
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 private val mapper = { cursor: SqlCursor ->
     LibraryView(
@@ -34,13 +36,22 @@ private val mapper = { cursor: SqlCursor ->
         favorite_modified_at = cursor.getLong(22),
         version = cursor.getLong(23)!!,
         is_syncing = cursor.getLong(24)!!,
-        totalCount = cursor.getLong(25)!!,
-        readCount = cursor.getDouble(26)!!,
-        latestUpload = cursor.getLong(27)!!,
-        chapterFetchedAt = cursor.getLong(28)!!,
-        lastRead = cursor.getLong(29)!!,
-        bookmarkCount = cursor.getDouble(30)!!,
-        category = cursor.getLong(31)!!,
+        notes = cursor.getString(25)!!,
+        memo = MemoColumnAdapter.decode(cursor.getBytes(26)!!),
+        totalCount = cursor.getLong(27)!!,
+        readCount = cursor.getDouble(28)!!,
+        latestUpload = cursor.getLong(29)!!,
+        chapterFetchedAt = cursor.getLong(30)!!,
+        lastRead = cursor.getLong(31)!!,
+        bookmarkCount = cursor.getDouble(32)!!,
+        categories = cursor.getString(33)!!,
+    )
+}
+
+fun getLibraryQuery(condition: String = "M.favorite = 1"): LibraryQuery {
+    return LibraryQuery(
+        Injekt.get<SqlDriver>(),
+        condition,
     )
 }
 
@@ -61,9 +72,9 @@ class LibraryQuery(
                 coalesce(C.fetchedAt, 0) AS chapterFetchedAt,
                 coalesce(C.lastRead, 0) AS lastRead,
                 coalesce(C.bookmarkCount, 0) AS bookmarkCount,
-                coalesce(MC.category_id, 0) AS category
+                coalesce(MC.categories, '0') AS categories
             FROM mangas M
-            LEFT JOIN(
+            LEFT JOIN (
                 SELECT
                     chapters.manga_id,
                     count(*) AS total,
@@ -82,7 +93,11 @@ class LibraryQuery(
                 GROUP BY chapters.manga_id
             ) AS C
             ON M._id = C.manga_id
-            LEFT JOIN mangas_categories AS MC
+            LEFT JOIN (
+                SELECT manga_id, group_concat(category_id) AS categories
+                FROM mangas_categories
+                GROUP BY manga_id
+            ) AS MC
             ON MC.manga_id = M._id
             WHERE $condition AND M.source <> $MERGED_SOURCE_ID
             UNION
@@ -94,7 +109,7 @@ class LibraryQuery(
                 coalesce(C.fetchedAt, 0) AS chapterFetchedAt,
                 coalesce(C.lastRead, 0) AS lastRead,
                 coalesce(C.bookmarkCount, 0) AS bookmarkCount,
-                coalesce(MC.category_id, 0) AS category
+                coalesce(MC.categories, '0') AS categories
             FROM mangas M
             LEFT JOIN (
                 SELECT merged.manga_id,merged.merge_id
@@ -102,7 +117,7 @@ class LibraryQuery(
                 GROUP BY merged.merge_id
             ) as ME
             ON ME.merge_id = M._id
-            LEFT JOIN(
+            LEFT JOIN (
                 SELECT
                     ME.merge_id,
                     count(*) AS total,
@@ -123,7 +138,11 @@ class LibraryQuery(
                 GROUP BY ME.merge_id
             ) AS C
             ON ME.merge_id = C.merge_id
-            LEFT JOIN mangas_categories AS MC
+            LEFT JOIN (
+                SELECT manga_id, group_concat(category_id) AS categories
+                FROM mangas_categories
+                GROUP BY manga_id
+            ) AS MC
             ON MC.manga_id = M._id
             WHERE $condition AND M.source = $MERGED_SOURCE_ID;
             """.trimIndent(),

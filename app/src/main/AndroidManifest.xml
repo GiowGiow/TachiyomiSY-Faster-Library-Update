@@ -34,9 +34,21 @@
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
-    <!-- Remove permission from Firebase dependency -->
+    <!-- Remove unnecessary permissions from Firebase dependency -->
+    <uses-permission
+        android:name="com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE"
+        tools:node="remove" />
+
     <uses-permission
         android:name="com.google.android.gms.permission.AD_ID"
+        tools:node="remove" />
+
+    <uses-permission
+        android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION"
+        tools:node="remove" />
+
+    <uses-permission
+        android:name="android.permission.ACCESS_ADSERVICES_AD_ID"
         tools:node="remove" />
 
     <application
@@ -66,8 +78,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Deep link to add repos -->
-            <intent-filter android:label="@string/action_add_repo">
+            <!-- Legacy deeplink to add extension store -->
+            <intent-filter android:label="@string/action_addExtensionStore">
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
@@ -75,6 +87,17 @@
 
                 <data android:scheme="tachiyomi" />
                 <data android:host="add-repo" />
+            </intent-filter>
+
+            <!-- Deeplink to add extension store -->
+            <intent-filter android:label="@string/action_addExtensionStore">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="mihon" />
+                <data android:host="extension-store" />
             </intent-filter>
 
             <!-- Open backup files -->
@@ -136,6 +159,10 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
+            <intent-filter android:label="@string/app_settings">
+                <action android:name="android.intent.action.APPLICATION_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
 
             <meta-data
                 android:name="android.app.searchable"
@@ -184,8 +211,10 @@
 
                 <data android:host="anilist-auth" />
                 <data android:host="bangumi-auth" />
+                <data android:host="mangabaka-auth" />
                 <data android:host="myanimelist-auth" />
                 <data android:host="shikimori-auth" />
+                <data android:host="hikka-auth" />
             </intent-filter>
         </activity>
         <activity
@@ -255,6 +284,14 @@
         <meta-data
             android:name="android.webkit.WebView.MetricsOptOut"
             android:value="true" />
+
+        <!-- Disable for manual opt-in -->
+        <meta-data
+            android:name="firebase_analytics_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="firebase_crashlytics_collection_enabled"
+            android:value="false" />
 
         <!-- Disable advertising ID collection for Firebase -->
         <meta-data
@@ -339,7 +376,7 @@
                 <data android:scheme="https" />
                 <data android:scheme="http" />
 
-                <data android:host="pururin.io" />
+                <data android:host="pururin.me" />
 
                 <data android:pathPattern="/gallery/..*" />
             </intent-filter>
@@ -393,6 +430,13 @@
                     android:scheme="tachiyomisy" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            tools:remove="screenOrientation" />
     </application>
+
+    <uses-sdk tools:overrideLibrary="rikka.shizuku.api"
+        tools:ignore="ManifestOrder" />
 
 </manifest>

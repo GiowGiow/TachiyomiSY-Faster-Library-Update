@@ -19,7 +19,6 @@ import androidx.compose.ui.unit.sp
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.SearchToolbar
-import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.components.Pill
@@ -41,6 +40,7 @@ fun LibraryToolbar(
     onClickSyncNow: () -> Unit,
     // SY -->
     onClickSyncExh: (() -> Unit)?,
+    isSyncEnabled: Boolean,
     // SY <--
     searchQuery: String?,
     onSearchQueryChange: (String?) -> Unit,
@@ -64,6 +64,7 @@ fun LibraryToolbar(
         onClickSyncNow = onClickSyncNow,
         // SY -->
         onClickSyncExh = onClickSyncExh,
+        isSyncEnabled = isSyncEnabled,
         // SY <--
         scrollBehavior = scrollBehavior,
     )
@@ -82,6 +83,7 @@ private fun LibraryRegularToolbar(
     onClickSyncNow: () -> Unit,
     // SY -->
     onClickSyncExh: (() -> Unit)?,
+    isSyncEnabled: Boolean,
     // SY <--
     scrollBehavior: TopAppBarScrollBehavior?,
 ) {
@@ -109,7 +111,7 @@ private fun LibraryRegularToolbar(
         actions = {
             val filterTint = if (hasFilters) MaterialTheme.colorScheme.active else LocalContentColor.current
             AppBarActions(
-                persistentListOf(
+                listOf(
                     AppBar.Action(
                         title = stringResource(MR.strings.action_filter),
                         icon = Icons.Outlined.FilterList,
@@ -128,11 +130,7 @@ private fun LibraryRegularToolbar(
                         title = stringResource(MR.strings.action_open_random_manga),
                         onClick = onClickOpenRandomManga,
                     ),
-                    AppBar.OverflowAction(
-                        title = stringResource(SYMR.strings.sync_library),
-                        onClick = onClickSyncNow,
-                    ),
-                ).builder().apply {
+                ).toMutableList().apply {
                     // SY -->
                     if (onClickSyncExh != null) {
                         add(
@@ -142,8 +140,16 @@ private fun LibraryRegularToolbar(
                             ),
                         )
                     }
+                    if (isSyncEnabled) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(SYMR.strings.sync_library),
+                                onClick = onClickSyncNow,
+                            ),
+                        )
+                    }
                     // SY <--
-                }.build(),
+                }.toList(),
             )
         },
         scrollBehavior = scrollBehavior,
@@ -161,7 +167,7 @@ private fun LibrarySelectionToolbar(
         titleContent = { Text(text = "$selectedCount") },
         actions = {
             AppBarActions(
-                persistentListOf(
+                listOf(
                     AppBar.Action(
                         title = stringResource(MR.strings.action_select_all),
                         icon = Icons.Outlined.SelectAll,

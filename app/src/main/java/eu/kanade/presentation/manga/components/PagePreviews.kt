@@ -36,15 +36,13 @@ import eu.kanade.domain.manga.model.PagePreview
 import eu.kanade.presentation.manga.MangaScreenItem
 import eu.kanade.tachiyomi.ui.manga.PagePreviewState
 import exh.util.floor
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.toImmutableList
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 
 @Composable
 private fun PagePreviewLoading(
-    setMaxWidth: (Dp) -> Unit
+    setMaxWidth: (Dp) -> Unit,
 ) {
     val density = LocalDensity.current
     Box(
@@ -63,7 +61,7 @@ private fun PagePreviewLoading(
 @Composable
 private fun PagePreviewRow(
     onOpenPage: (Int) -> Unit,
-    items: ImmutableList<PagePreview>
+    items: List<PagePreview>,
 ) {
     Row(
         modifier = Modifier
@@ -88,7 +86,7 @@ private fun PagePreviewMore(
 ) {
     Box(
         modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         TextButton(onClick = onMorePreviewsClicked) {
             Text(stringResource(SYMR.strings.more_previews))
@@ -116,7 +114,7 @@ fun PagePreviews(
                 pagePreviewState.pagePreviews.take(rowCount * itemPerRowCount).chunked(itemPerRowCount).forEach {
                     PagePreviewRow(
                         onOpenPage = onOpenPage,
-                        items = remember(it) { it.toImmutableList() }
+                        items = it,
                     )
                 }
 
@@ -153,7 +151,7 @@ fun LazyListScope.PagePreviewItems(
             ) {
                 PagePreviewRow(
                     onOpenPage = onOpenPage,
-                    items = remember(it) { it.toImmutableList() }
+                    items = it,
                 )
             }
             item(

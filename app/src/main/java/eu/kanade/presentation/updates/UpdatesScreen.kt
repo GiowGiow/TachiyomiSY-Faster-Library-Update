@@ -5,9 +5,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.FlipToBack
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SelectAll
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.TopAppBarScrollBehavior
@@ -27,7 +30,6 @@ import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.updates.UpdatesItem
 import eu.kanade.tachiyomi.ui.updates.UpdatesScreenModel
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import tachiyomi.i18n.MR
@@ -37,6 +39,7 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
+import tachiyomi.presentation.core.theme.active
 import java.time.LocalDate
 import kotlin.time.Duration.Companion.seconds
 
@@ -57,16 +60,22 @@ fun UpdateScreen(
     onMultiBookmarkClicked: (List<UpdatesItem>, bookmark: Boolean) -> Unit,
     onMultiMarkAsReadClicked: (List<UpdatesItem>, read: Boolean) -> Unit,
     onMultiDeleteClicked: (List<UpdatesItem>) -> Unit,
-    onUpdateSelected: (UpdatesItem, Boolean, Boolean, Boolean) -> Unit,
+    onUpdateSelected: (UpdatesItem, Boolean, Boolean) -> Unit,
     onOpenChapter: (UpdatesItem) -> Unit,
+    onFilterClicked: () -> Unit,
+    hasActiveFilters: Boolean,
 ) {
-    BackHandler(enabled = state.selectionMode, onBack = { onSelectAll(false) })
+    BackHandler(enabled = state.selectionMode) {
+        onSelectAll(false)
+    }
 
     Scaffold(
         topBar = { scrollBehavior ->
             UpdatesAppBar(
                 onCalendarClicked = { onCalendarClicked() },
                 onUpdateLibrary = { onUpdateLibrary() },
+                onFilterClicked = { onFilterClicked() },
+                hasFilters = hasActiveFilters,
                 actionModeCounter = state.selected.size,
                 onSelectAll = { onSelectAll(true) },
                 onInvertSelection = { onInvertSelection() },
@@ -107,7 +116,7 @@ fun UpdateScreen(
                             isRefreshing = false
                         }
                     },
-                    enabled = { !state.selectionMode },
+                    enabled = !state.selectionMode,
                     indicatorPadding = contentPadding,
                 ) {
                     FastScrollLazyColumn(
@@ -137,6 +146,8 @@ fun UpdateScreen(
 private fun UpdatesAppBar(
     onCalendarClicked: () -> Unit,
     onUpdateLibrary: () -> Unit,
+    onFilterClicked: () -> Unit,
+    hasFilters: Boolean,
     // For action mode
     actionModeCounter: Int,
     onSelectAll: () -> Unit,
@@ -150,7 +161,13 @@ private fun UpdatesAppBar(
         title = stringResource(MR.strings.label_recent_updates),
         actions = {
             AppBarActions(
-                persistentListOf(
+                listOf(
+                    AppBar.Action(
+                        title = stringResource(MR.strings.action_filter),
+                        icon = Icons.Outlined.FilterList,
+                        iconTint = if (hasFilters) MaterialTheme.colorScheme.active else LocalContentColor.current,
+                        onClick = onFilterClicked,
+                    ),
                     AppBar.Action(
                         title = stringResource(MR.strings.action_view_upcoming),
                         icon = Icons.Outlined.CalendarMonth,
@@ -168,7 +185,7 @@ private fun UpdatesAppBar(
         onCancelActionMode = onCancelActionMode,
         actionModeActions = {
             AppBarActions(
-                persistentListOf(
+                listOf(
                     AppBar.Action(
                         title = stringResource(MR.strings.action_select_all),
                         icon = Icons.Outlined.SelectAll,

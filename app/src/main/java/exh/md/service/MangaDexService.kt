@@ -9,6 +9,7 @@ import exh.md.dto.AtHomeDto
 import exh.md.dto.AtHomeImageReportDto
 import exh.md.dto.ChapterDto
 import exh.md.dto.ChapterListDto
+import exh.md.dto.CoverListDto
 import exh.md.dto.MangaDto
 import exh.md.dto.MangaListDto
 import exh.md.dto.RelationListDto
@@ -26,6 +27,7 @@ import okhttp3.OkHttpClient
 
 class MangaDexService(
     private val client: OkHttpClient,
+    private val headers: Headers,
 ) {
 
     suspend fun viewMangas(
@@ -44,6 +46,7 @@ class MangaDexService(
                             }
                         }
                         .build(),
+                    headers = headers,
                     cache = CacheControl.FORCE_NETWORK,
                 ),
             ).awaitSuccess().parseAs()
@@ -65,6 +68,7 @@ class MangaDexService(
                             addQueryParameter("includes[]", MdConstants.Types.artist)
                         }
                         .build(),
+                    headers = headers,
                     cache = CacheControl.FORCE_NETWORK,
                 ),
             ).awaitSuccess().parseAs()
@@ -85,6 +89,7 @@ class MangaDexService(
                             }
                         }
                         .build(),
+                    headers = headers,
                     cache = CacheControl.FORCE_NETWORK,
                 ),
             ).awaitSuccess().parseAs()
@@ -106,6 +111,7 @@ class MangaDexService(
                             addQueryParameter("translatedLanguage[]", translatedLanguage)
                         }
                         .build(),
+                    headers = headers,
                     cache = CacheControl.FORCE_NETWORK,
                 ),
             ).awaitSuccess().parseAs()
@@ -149,6 +155,7 @@ class MangaDexService(
             client.newCall(
                 GET(
                     url,
+                    headers = headers,
                     cache = CacheControl.FORCE_NETWORK,
                 ),
             ).awaitSuccess().parseAs()
@@ -157,7 +164,7 @@ class MangaDexService(
 
     suspend fun viewChapter(id: String): ChapterDto {
         return with(MdUtil.jsonParser) {
-            client.newCall(GET("${MdApi.chapter}/$id", cache = CacheControl.FORCE_NETWORK))
+            client.newCall(GET("${MdApi.chapter}/$id", headers = headers, cache = CacheControl.FORCE_NETWORK))
                 .awaitSuccess()
                 .parseAs()
         }
@@ -165,7 +172,7 @@ class MangaDexService(
 
     suspend fun randomManga(): MangaDto {
         return with(MdUtil.jsonParser) {
-            client.newCall(GET("${MdApi.manga}/random", cache = CacheControl.FORCE_NETWORK))
+            client.newCall(GET("${MdApi.manga}/random", headers = headers, cache = CacheControl.FORCE_NETWORK))
                 .awaitSuccess()
                 .parseAs()
         }
@@ -177,6 +184,7 @@ class MangaDexService(
                 POST(
                     MdConstants.atHomeReportUrl,
                     body = MdUtil.encodeToBody(atHomeImageReportDto),
+                    headers = headers,
                     cache = CacheControl.FORCE_NETWORK,
                 ),
             ).awaitSuccess().parseAs()
@@ -185,7 +193,6 @@ class MangaDexService(
 
     suspend fun getAtHomeServer(
         atHomeRequestUrl: String,
-        headers: Headers,
     ): AtHomeDto {
         return with(MdUtil.jsonParser) {
             client.newCall(GET(atHomeRequestUrl, headers, CacheControl.FORCE_NETWORK))
@@ -204,9 +211,30 @@ class MangaDexService(
                             addPathSegment("relation")
                         }
                         .build(),
+                    headers = headers,
                     cache = CacheControl.FORCE_NETWORK,
                 ),
             ).awaitSuccess().parseAs()
         }
+    }
+
+    suspend fun fetchFirstVolumeCover(mangaDto: MangaDto): String? {
+        val mangaData = mangaDto.data
+        val result: CoverListDto = with(MdUtil.jsonParser) {
+            client.newCall(
+                GET(
+                    MdApi.cover.toHttpUrl().newBuilder()
+                        .apply {
+                            addQueryParameter("order[volume]", "asc")
+                            addQueryParameter("manga[]", mangaData.id)
+                            addQueryParameter("locales[]", mangaData.attributes.originalLanguage)
+                            addQueryParameter("limit", "1")
+                        }
+                        .build(),
+                    headers = headers,
+                ),
+            ).awaitSuccess().parseAs()
+        }
+        return result.data.firstOrNull()?.attributes?.fileName
     }
 }

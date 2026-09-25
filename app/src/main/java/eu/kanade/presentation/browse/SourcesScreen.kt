@@ -28,14 +28,13 @@ import eu.kanade.presentation.browse.components.BaseSourceItem
 import eu.kanade.tachiyomi.ui.browse.source.SourcesScreenModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreenModel.Listing
 import eu.kanade.tachiyomi.util.system.LocaleHelper
-import kotlinx.collections.immutable.ImmutableList
 import tachiyomi.domain.source.model.Pin
 import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
-import tachiyomi.presentation.core.components.material.SecondaryItemAlpha
+import tachiyomi.presentation.core.components.material.SECONDARY_ALPHA
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.components.material.topSmallPaddingValues
 import tachiyomi.presentation.core.i18n.stringResource
@@ -81,7 +80,7 @@ fun SourcesScreen(
                     when (model) {
                         is SourceUiModel.Header -> {
                             SourceHeader(
-                                modifier = Modifier.animateItemPlacement(),
+                                modifier = Modifier.animateItem(),
                                 language = model.language,
                                 // SY -->
                                 isCategory = model.isCategory,
@@ -89,7 +88,7 @@ fun SourcesScreen(
                             )
                         }
                         is SourceUiModel.Item -> SourceItem(
-                            modifier = Modifier.animateItemPlacement(),
+                            modifier = Modifier.animateItem(),
                             source = model.source,
                             // SY -->
                             showLatest = state.showLatest,
@@ -179,7 +178,7 @@ private fun SourcePinButton(
         MaterialTheme.colorScheme.primary
     } else {
         MaterialTheme.colorScheme.onBackground.copy(
-            alpha = SecondaryItemAlpha,
+            alpha = SECONDARY_ALPHA,
         )
     }
     val description = if (isPinned) MR.strings.action_unpin else MR.strings.action_pin
@@ -266,7 +265,7 @@ sealed interface SourceUiModel {
 @Composable
 fun SourceCategoriesDialog(
     source: Source,
-    categories: ImmutableList<String>,
+    categories: List<String>,
     onClickCategories: (List<String>) -> Unit,
     onDismissRequest: () -> Unit,
 ) {

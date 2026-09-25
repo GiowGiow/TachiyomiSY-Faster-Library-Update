@@ -39,12 +39,10 @@ import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
 import exh.md.utils.MdConstants
 import exh.md.utils.MdUtil
-import kotlinx.collections.immutable.toImmutableMap
 import logcat.LogPriority
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.UnsortedPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.sy.SYMR
 import tachiyomi.presentation.core.components.material.padding
@@ -65,14 +63,13 @@ object SettingsMangadexScreen : SearchableSettings {
     @Composable
     override fun getPreferences(): List<Preference> {
         val sourcePreferences: SourcePreferences = remember { Injekt.get() }
-        val unsortedPreferences: UnsortedPreferences = remember { Injekt.get() }
         val trackPreferences: TrackPreferences = remember { Injekt.get() }
-        val mdex = remember { MdUtil.getEnabledMangaDex(unsortedPreferences, sourcePreferences) } ?: return emptyList()
+        val mdex = remember { MdUtil.getEnabledMangaDex(sourcePreferences) } ?: return emptyList()
 
         return listOf(
             loginPreference(mdex, trackPreferences),
-            preferredMangaDexId(unsortedPreferences, sourcePreferences),
-            syncMangaDexIntoThis(unsortedPreferences),
+            preferredMangaDexId(sourcePreferences),
+            syncMangaDexIntoThis(sourcePreferences),
             syncLibraryToMangaDex(),
         )
     }
@@ -139,7 +136,7 @@ object SettingsMangadexScreen : SearchableSettings {
             title = mdex.name + " Login",
             content = {
                 BasePreferenceWidget(
-                    title = it.title,
+                    title = mdex.name + " Login",
                     widget = {
                         Icon(
                             imageVector = Icons.Outlined.PeopleAlt,
@@ -174,16 +171,14 @@ object SettingsMangadexScreen : SearchableSettings {
 
     @Composable
     fun preferredMangaDexId(
-        unsortedPreferences: UnsortedPreferences,
         sourcePreferences: SourcePreferences,
     ): Preference.PreferenceItem.ListPreference<String> {
         return Preference.PreferenceItem.ListPreference(
-            pref = unsortedPreferences.preferredMangaDexId(),
+            preference = sourcePreferences.preferredMangaDexId,
             title = stringResource(SYMR.strings.mangadex_preffered_source),
             subtitle = stringResource(SYMR.strings.mangadex_preffered_source_summary),
             entries = MdUtil.getEnabledMangaDexs(sourcePreferences)
-                .associate { it.id.toString() to it.toString() }
-                .toImmutableMap(),
+                .associate { it.id.toString() to it.toString() },
         )
     }
 
@@ -250,7 +245,7 @@ object SettingsMangadexScreen : SearchableSettings {
     }
 
     @Composable
-    fun syncMangaDexIntoThis(unsortedPreferences: UnsortedPreferences): Preference.PreferenceItem.TextPreference {
+    fun syncMangaDexIntoThis(sourcePreferences: SourcePreferences): Preference.PreferenceItem.TextPreference {
         val context = LocalContext.current
         var dialogOpen by remember { mutableStateOf(false) }
         if (dialogOpen) {
@@ -258,7 +253,7 @@ object SettingsMangadexScreen : SearchableSettings {
                 onDismissRequest = { dialogOpen = false },
                 onSelectionConfirmed = { items ->
                     dialogOpen = false
-                    unsortedPreferences.mangadexSyncToLibraryIndexes().set(
+                    sourcePreferences.mangadexSyncToLibraryIndexes.set(
                         List(items.size) { index -> (index + 1).toString() }.toSet(),
                     )
                     LibraryUpdateJob.startNow(

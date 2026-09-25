@@ -33,9 +33,8 @@ class NHentaiSearchMetadata : RaisedSearchMetadata() {
     var englishTitle by titleDelegate(TITLE_TYPE_ENGLISH)
     var shortTitle by titleDelegate(TITLE_TYPE_SHORT)
 
-    var coverImageType: String? = null
-    var pageImageTypes: List<String> = emptyList()
-    var thumbnailImageType: String? = null
+    var coverImageUrl: String? = null
+    var pageImagePreviewUrls: List<String> = emptyList()
 
     var scanlator: String? = null
 
@@ -43,14 +42,6 @@ class NHentaiSearchMetadata : RaisedSearchMetadata() {
 
     override fun createMangaInfo(manga: SManga): SManga {
         val key = nhId?.let { nhIdToPath(it) }
-
-        val cover = if (mediaId != null) {
-            typeToExtension(coverImageType)?.let {
-                "https://t.nhentai.net/galleries/$mediaId/cover.$it"
-            }
-        } else {
-            null
-        }
 
         val title = when (preferredTitle) {
             TITLE_TYPE_SHORT -> shortTitle ?: englishTitle ?: japaneseTitle ?: manga.title
@@ -60,6 +51,11 @@ class NHentaiSearchMetadata : RaisedSearchMetadata() {
 
         // Set artist (if we can find one)
         val artist = tags.ofNamespace(NHENTAI_ARTIST_NAMESPACE).let { tags ->
+            if (tags.isNotEmpty()) tags.joinToString(transform = { it.name }) else null
+        }
+
+        // Set group (if we can find one)
+        val group = tags.ofNamespace(NHENTAI_GROUP_NAMESPACE).let { tags ->
             if (tags.isNotEmpty()) tags.joinToString(transform = { it.name }) else null
         }
 
@@ -77,16 +73,15 @@ class NHentaiSearchMetadata : RaisedSearchMetadata() {
             }
         }
 
-        val description = "meta"
-
         return manga.copy(
             url = key ?: manga.url,
-            thumbnail_url = cover ?: manga.thumbnail_url,
+            thumbnail_url = coverImageUrl ?: manga.thumbnail_url,
             title = title,
-            artist = artist ?: manga.artist,
+            artist = group ?: manga.artist,
+            author = artist ?: manga.artist,
             genre = genres,
             status = status,
-            description = description,
+            description = null,
         )
     }
 
@@ -108,9 +103,8 @@ class NHentaiSearchMetadata : RaisedSearchMetadata() {
                 getItem(japaneseTitle) { stringResource(SYMR.strings.japanese_title) },
                 getItem(englishTitle) { stringResource(SYMR.strings.english_title) },
                 getItem(shortTitle) { stringResource(SYMR.strings.short_title) },
-                getItem(coverImageType) { stringResource(SYMR.strings.cover_image_file_type) },
-                getItem(pageImageTypes.size) { stringResource(SYMR.strings.page_count) },
-                getItem(thumbnailImageType) { stringResource(SYMR.strings.thumbnail_image_file_type) },
+                getItem(coverImageUrl) { stringResource(SYMR.strings.thumbnail_url) },
+                getItem(pageImagePreviewUrls.size) { stringResource(SYMR.strings.page_count) },
                 getItem(scanlator) { stringResource(MR.strings.scanlator) },
             )
         }
@@ -126,15 +120,8 @@ class NHentaiSearchMetadata : RaisedSearchMetadata() {
         const val BASE_URL = "https://nhentai.net"
 
         private const val NHENTAI_ARTIST_NAMESPACE = "artist"
+        private const val NHENTAI_GROUP_NAMESPACE = "group"
         const val NHENTAI_CATEGORIES_NAMESPACE = "category"
-
-        fun typeToExtension(t: String?) =
-            when (t) {
-                "p" -> "png"
-                "j" -> "jpg"
-                "g" -> "gif"
-                else -> null
-            }
 
         fun nhUrlToId(url: String) =
             url.split("/").last { it.isNotBlank() }.toLong()

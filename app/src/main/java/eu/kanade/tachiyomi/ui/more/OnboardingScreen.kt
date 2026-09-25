@@ -24,21 +24,18 @@ class OnboardingScreen : Screen() {
         val navigator = LocalNavigator.currentOrThrow
 
         val basePreferences = remember { Injekt.get<BasePreferences>() }
-        val shownOnboardingFlow by basePreferences.shownOnboardingFlow().collectAsState()
+        val shownOnboardingFlow by basePreferences.shownOnboardingFlow.collectAsState()
 
         val finishOnboarding: () -> Unit = {
-            basePreferences.shownOnboardingFlow().set(true)
+            basePreferences.shownOnboardingFlow.set(true)
             navigator.pop()
         }
 
         val restoreSettingKey = stringResource(SettingsDataScreen.restorePreferenceKeyString)
 
-        BackHandler(
-            enabled = !shownOnboardingFlow,
-            onBack = {
-                // Prevent exiting if onboarding hasn't been completed
-            },
-        )
+        BackHandler(enabled = !shownOnboardingFlow) {
+            // Prevent exiting if onboarding hasn't been completed
+        }
 
         OnboardingScreen(
             onComplete = finishOnboarding,

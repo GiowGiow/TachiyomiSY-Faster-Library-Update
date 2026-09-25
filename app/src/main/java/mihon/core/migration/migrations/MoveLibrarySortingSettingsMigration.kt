@@ -1,8 +1,8 @@
 package mihon.core.migration.migrations
 
+import android.app.Application
 import androidx.core.content.edit
 import androidx.preference.PreferenceManager
-import eu.kanade.tachiyomi.App
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
 import tachiyomi.core.common.util.lang.withIOContext
@@ -13,11 +13,11 @@ class MoveLibrarySortingSettingsMigration : Migration {
     override val version: Float = 20f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
-        val context = migrationContext.get<App>() ?: return@withIOContext false
+        val context = migrationContext.get<Application>() ?: return@withIOContext false
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         val libraryPreferences = migrationContext.get<LibraryPreferences>() ?: return@withIOContext false
         try {
-            val oldSortingMode = prefs.getInt(libraryPreferences.sortingMode().key(), 0 /* ALPHABETICAL */)
+            val oldSortingMode = prefs.getInt(libraryPreferences.sortingMode.key(), 0 /* ALPHABETICAL */)
             val oldSortingDirection = prefs.getBoolean("library_sorting_ascending", true)
 
             val newSortingMode = when (oldSortingMode) {
@@ -40,12 +40,12 @@ class MoveLibrarySortingSettingsMigration : Migration {
             }
 
             prefs.edit(commit = true) {
-                remove(libraryPreferences.sortingMode().key())
+                remove(libraryPreferences.sortingMode.key())
                 remove("library_sorting_ascending")
             }
 
             prefs.edit {
-                putString(libraryPreferences.sortingMode().key(), newSortingMode)
+                putString(libraryPreferences.sortingMode.key(), newSortingMode)
                 putString("library_sorting_ascending", newSortingDirection)
             }
         } catch (e: Exception) {

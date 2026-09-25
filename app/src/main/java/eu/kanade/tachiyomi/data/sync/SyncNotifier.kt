@@ -27,7 +27,7 @@ class SyncNotifier(private val context: Context) {
     }
 
     private val completeNotificationBuilder = context.notificationBuilder(
-        Notifications.CHANNEL_BACKUP_RESTORE_PROGRESS,
+        Notifications.CHANNEL_BACKUP_RESTORE_COMPLETE,
     ) {
         setLargeIcon(BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher))
         setSmallIcon(R.drawable.ic_tachi)
@@ -42,7 +42,7 @@ class SyncNotifier(private val context: Context) {
         val builder = with(progressNotificationBuilder) {
             setContentTitle(context.getString(R.string.syncing_library))
 
-            if (!preferences.hideNotificationContent().get()) {
+            if (!preferences.hideNotificationContent.get()) {
                 setContentText(content)
             }
 

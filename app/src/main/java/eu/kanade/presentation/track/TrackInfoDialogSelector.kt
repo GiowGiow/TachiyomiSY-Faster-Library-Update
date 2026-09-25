@@ -33,9 +33,6 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentMapOf
-import kotlinx.collections.immutable.toImmutableList
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.ScrollbarLazyColumn
 import tachiyomi.presentation.core.components.WheelNumberPicker
@@ -43,8 +40,6 @@ import tachiyomi.presentation.core.components.WheelTextPicker
 import tachiyomi.presentation.core.components.material.AlertDialogContent
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.util.isScrolledToEnd
-import tachiyomi.presentation.core.util.isScrolledToStart
 
 @Composable
 fun TrackStatusSelector(
@@ -86,8 +81,8 @@ fun TrackStatusSelector(
                     }
                 }
             }
-            if (!state.isScrolledToStart()) HorizontalDivider(modifier = Modifier.align(Alignment.TopCenter))
-            if (!state.isScrolledToEnd()) HorizontalDivider(modifier = Modifier.align(Alignment.BottomCenter))
+            if (state.canScrollBackward) HorizontalDivider(modifier = Modifier.align(Alignment.TopCenter))
+            if (state.canScrollForward) HorizontalDivider(modifier = Modifier.align(Alignment.BottomCenter))
         },
         onConfirm = onConfirm,
         onDismissRequest = onDismissRequest,
@@ -106,7 +101,7 @@ fun TrackChapterSelector(
         title = stringResource(MR.strings.chapters),
         content = {
             WheelNumberPicker(
-                items = range.toImmutableList(),
+                items = range.toList(),
                 modifier = Modifier.align(Alignment.Center),
                 startIndex = selection,
                 onSelectionChanged = { onSelectionChange(it) },
@@ -121,7 +116,7 @@ fun TrackChapterSelector(
 fun TrackScoreSelector(
     selection: String,
     onSelectionChange: (String) -> Unit,
-    selections: ImmutableList<String>,
+    selections: List<String>,
     onConfirm: () -> Unit,
     onDismissRequest: () -> Unit,
 ) {
@@ -234,7 +229,7 @@ private fun TrackStatusSelectorPreviews() {
             TrackStatusSelector(
                 selection = 1,
                 onSelectionChange = {},
-                selections = persistentMapOf(
+                selections = mapOf(
                     // Anilist values
                     1L to MR.strings.reading,
                     2L to MR.strings.plan_to_read,
