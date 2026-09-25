@@ -57,12 +57,13 @@ android {
             setProguardFiles(listOf(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"))
 
             buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLatestCommitTime = true)}\"")
-            buildConfigField("boolean", "INCLUDE_UPDATER", "true")
+            // Giow: personal build, never prompt for official SY app updates
+            buildConfigField("boolean", "INCLUDE_UPDATER", "false")
         }
         create("foss") {
             initWith(getByName("release"))
 
-            applicationIdSuffix = ".foss"
+            // Giow: keep the same package as release so CI builds update the installed app
 
             matchingFallbacks.add("release")
 
